@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Champion Dashboard — Vulnerability Remediation</title>
+<!-- SheetJS for in-browser Excel parsing -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px; line-height: 1.6; color: #1f2328;
+    background: #f0f4f8; min-height: 100vh;
+  }
+
+  /* ── TOP NAV ── */
+  .topnav {
+    background: #1c2b4a; color: #fff; padding: 0 24px;
+    display: flex; align-items: center; gap: 14px; height: 52px;
+  }
+  .topnav .logo { font-size: 16px; font-weight: 700; letter-spacing: .5px; color: #60a5fa; }
+  .topnav .subtitle { font-size: 12px; color: #94a3b8; margin-left: 4px; }
+  .topnav .spacer { flex: 1; }
+  .topnav .nav-badge { background: #3b82d4; border-radius: 12px; padding: 2px 10px; font-size: 11px; font-weight: 600; }
+
+  /* ── LAYOUT ── */
+  .main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+
+  /* ── UPLOAD ZONE ── */
+  .upload-section { margin-bottom: 28px; }
+  .upload-zone {
+    border: 2px dashed #93c5fd; border-radius: 10px; background: #eff6ff;
+    padding: 40px 24px; text-align: center; cursor: pointer;
+    transition: border-color .2s, background .2s;
+  }
+  .upload-zone:hover, .upload-zone.drag-over { border-color: #3b82d4; background: #dbeafe; }
+  .upload-zone .upload-icon { font-size: 40px; color: #3b82d4; margin-bottom: 10px; }
+  .upload-zone h3 { font-size: 15px; font-weight: 700; color: #1e40af; margin-bottom: 4px; }
+  .upload-zone p  { font-size: 13px; color: #57606a; }
+  .upload-zone input[type="file"] { display: none; }
+  .btn-upload {
+    display: inline-block; margin-top: 14px; background: #3b82d4; color: #fff;
+    border: none; border-radius: 6px; padding: 8px 20px; font-size: 13px;
+    font-weight: 600; cursor: pointer;
+  }
+  .btn-upload:hover { background: #2563eb; }
+
+  /* ── PROCESSING INDICATOR ── */
+  .processing { display: none; text-align: center; padding: 24px; }
+  .processing.active { display: block; }
+  .spinner { display: inline-block; width: 36px; height: 36px; border: 4px solid #e5e7eb; border-top-color: #3b82d4; border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── DASHBOARD (hidden until data loaded) ── */
+  #dashboard { display: none; }
+  #dashboard.active { display: block; }
+
+  /* ── SUMMARY CARDS ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
+  .kpi-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; }
+  .kpi-card .kpi-num  { font-size: 28px; font-weight: 700; }
+  .kpi-card .kpi-label { font-size: 11px; color: #57606a; margin-top: 2px; }
+  .kpi-red  .kpi-num { color: #b91c1c; }
+  .kpi-orange .kpi-num { color: #c2410c; }
+  .kpi-purple .kpi-num { color: #7c3aed; }
+  .kpi-blue .kpi-num { color: #1d4ed8; }
+  .kpi-green .kpi-num { color: #166534; }
+
+  /* ── SECTION HEADER ── */
+  .section-hdr {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 14px; font-weight: 700; border-left: 3px solid #3b82d4;
+    padding-left: 10px; margin: 24px 0 10px;
+  }
+
+  /* ── TABS ── */
+  .tabs { display: flex; gap: 4px; border-bottom: 2px solid #e5e7eb; margin-bottom: 16px; }
+  .tab {
+    padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+    border-radius: 6px 6px 0 0; color: #57606a; border: 1px solid transparent;
+    border-bottom: none; background: transparent;
+  }
+  .tab.active { background: #fff; color: #1d4ed8; border-color: #e5e7eb; border-bottom-color: #fff; margin-bottom: -2px; }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* ── TABLE ── */
+  .table-wrap { overflow-x: auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th { background: #f7f8fa; border-bottom: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; font-weight: 600; white-space: nowrap; position: sticky; top: 0; z-index: 1; }
+  tbody td { border-bottom: 1px solid #f0f0f0; padding: 7px 10px; vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #f7f8fa; }
+  .mono { font-family: "Consolas","Courier New",monospace; font-size: 11px; color: #57606a; word-break: break-all; }
+
+  /* ── BADGES ── */
+  .badge {
+    display: inline-block; padding: 2px 7px; border-radius: 4px;
+    font-size: 10px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; white-space: nowrap;
+  }
+  .badge-high   { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+  .badge-medium { background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; }
+  .badge-low    { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+  .badge-cwe    { background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; }
+  .badge-sast   { background: #fdf4ff; color: #7c3aed; border: 1px solid #d8b4fe; }
+  .badge-sca    { background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; }
+  .badge-ok     { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+
+  /* ── REMEDIATION CARDS ── */
+  .rem-grid { display: grid; gap: 16px; }
+  .rem-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+  .rem-card-hdr { background: #f7f8fa; border-bottom: 1px solid #e5e7eb; padding: 10px 14px; display: flex; align-items: center; gap: 8px; }
+  .rem-card-hdr .cwe-label { font-weight: 700; font-size: 13px; }
+  .rem-card-hdr .count { background: #b91c1c; color: #fff; border-radius: 12px; padding: 1px 8px; font-size: 11px; font-weight: 700; }
+  .rem-card-body { padding: 14px; }
+  .rem-card-body p { font-size: 13px; color: #374151; margin-bottom: 8px; }
+  .rem-card-body strong { color: #1f2328; }
+
+  /* Steps */
+  .steps { margin: 10px 0; }
+  .step { display: flex; gap: 10px; margin-bottom: 8px; }
+  .step .sn { min-width: 22px; height: 22px; background: #3b82d4; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+  .step p { font-size: 13px; color: #374151; }
+
+  /* Code blocks */
+  .code-label { font-size: 11px; font-weight: 700; color: #57606a; margin: 10px 0 4px; }
+  .code-block { border-radius: 6px; padding: 12px 14px; font-family: "Consolas","Courier New",monospace; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; margin-bottom: 8px; }
+  .code-block.vuln { background: #fef9f9; border: 1px solid #fca5a5; }
+  .code-block.fix  { background: #f0fdf4; border: 1px solid #86efac; }
+  code { background: #f0f0f0; border-radius: 3px; padding: 1px 5px; font-size: 12px; font-family: "Consolas",monospace; }
+
+  /* ── EFFORT TABLE ── */
+  .eff-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .eff-table th, .eff-table td { border: 1px solid #e5e7eb; padding: 8px 12px; }
+  .eff-table th { background: #f7f8fa; font-weight: 600; text-align: left; }
+  .eff-table td { background: #fff; }
+
+  /* ── AUTOMATION BLUEPRINT ── */
+  .auto-section { background: #fff; border: 1px solid #d8b4fe; border-radius: 8px; padding: 20px; }
+  .auto-section h3 { font-size: 14px; font-weight: 700; color: #7c3aed; margin-bottom: 12px; }
+  .pipeline { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin: 14px 0; }
+  .pipe-step { background: #eff6ff; border: 1px solid #93c5fd; border-radius: 6px; padding: 10px 14px; font-size: 12px; font-weight: 600; color: #1d4ed8; text-align: center; min-width: 100px; }
+  .pipe-arrow { color: #3b82d4; font-size: 20px; padding: 0 2px; }
+  .auto-list { font-size: 13px; color: #374151; padding-left: 20px; line-height: 1.9; }
+  .auto-list li { margin-bottom: 2px; }
+
+  /* ── CHARTS (SVG bar) ── */
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .chart-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; }
+  .chart-card h4 { font-size: 12px; font-weight: 700; color: #57606a; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; }
+  .bar-label { width: 160px; text-align: right; flex-shrink: 0; color: #374151; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-track { flex: 1; background: #f0f0f0; border-radius: 3px; height: 14px; overflow: hidden; }
+  .bar-fill  { height: 100%; border-radius: 3px; transition: width .4s; }
+  .bar-count { width: 28px; font-weight: 700; color: #1f2328; }
+
+  /* ── FILTER BAR ── */
+  .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+  .filter-bar select, .filter-bar input {
+    padding: 5px 10px; border: 1px solid #e5e7eb; border-radius: 5px;
+    font-size: 12px; background: #fff; color: #1f2328;
+  }
+  .filter-bar label { font-size: 12px; color: #57606a; }
+  .btn-clear { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 5px; padding: 5px 12px; font-size: 12px; cursor: pointer; color: #374151; }
+  .btn-clear:hover { background: #e5e7eb; }
+
+  /* ── EXPORT BTN ── */
+  .export-bar { display: flex; gap: 8px; margin-bottom: 16px; align-items: center; }
+  .btn-export { background: #1c2b4a; color: #fff; border: none; border-radius: 6px; padding: 7px 16px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .btn-export:hover { background: #2563eb; }
+  .file-info { font-size: 12px; color: #57606a; }
+
+  a { color: #3b82d4; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ── EMPTY STATE ── */
+  .empty-state { text-align: center; padding: 40px; color: #57606a; font-size: 13px; }
+
+  /* ── FOOTER ── */
+  .footer { margin-top: 48px; padding-top: 14px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #57606a; }
+
+  @media (max-width: 700px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .chart-row { grid-template-columns: 1fr; }
+    .pipeline { flex-direction: column; }
+    .pipe-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<div class="topnav">
+  <span class="upload-icon" style="font-size:20px;">🛡</span>
+  <span class="logo">Security Champion</span>
+  <span class="subtitle">Vulnerability Remediation Dashboard</span>
+  <div class="spacer"></div>
+  <span class="nav-badge">IBM Bob + ICA</span>
+</div>
+
+<div class="main">
+
+  <!-- UPLOAD SECTION -->
+  <div class="upload-section" id="uploadSection">
+    <div class="upload-zone" id="uploadZone">
+      <div class="upload-icon">📊</div>
+      <h3>Upload Your Polaris Vulnerability Export</h3>
+      <p>Drag &amp; drop your <strong>.xlsx</strong> or <strong>.csv</strong> file here, or click to browse.</p>
+      <p style="margin-top:6px;font-size:12px;">Expected columns: Application, Project, Issue Type, Severity, Test Type, CWE ID, Location, Link</p>
+      <label class="btn-upload">
+        Browse File
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+      </label>
+    </div>
+  </div>
+
+  <!-- PROCESSING -->
+  <div class="processing" id="processing">
+    <div class="spinner"></div>
+    <p style="margin-top:12px;font-size:13px;color:#57606a;">Reading Excel file and generating remediation guidance…</p>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard">
+
+    <!-- FILE INFO + EXPORT -->
+    <div class="export-bar">
+      <span class="file-info" id="fileInfo"></span>
+      <div style="flex:1"></div>
+      <button class="btn-export" onclick="exportCSV()">⬇ Export Filtered CSV</button>
+      <button class="btn-export" onclick="window.print()">🖨 Print Report</button>
+      <button class="btn-export" style="background:#57606a;" onclick="resetDashboard()">↩ Upload New File</button>
+    </div>
+
+    <!-- KPI CARDS -->
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <!-- CHARTS -->
+    <div class="chart-row" id="chartRow"></div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('findings')">📋 Findings</div>
+      <div class="tab" onclick="switchTab('remediation')">🔧 Remediation Guidance</div>
+      <div class="tab" onclick="switchTab('effort')">📅 Effort &amp; Action Plan</div>
+      <div class="tab" onclick="switchTab('automation')">🤖 IBM Bob + ICA Automation</div>
+    </div>
+
+    <!-- TAB: FINDINGS -->
+    <div class="tab-pane active" id="tab-findings">
+      <div class="section-hdr">Finding Inventory</div>
+      <div class="filter-bar">
+        <label>Severity:</label>
+        <select id="fSeverity" onchange="applyFilters()">
+          <option value="">All</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+          <option value="critical">Critical</option>
+        </select>
+        <label>CWE:</label>
+        <select id="fCwe" onchange="applyFilters()"></select>
+        <label>Project:</label>
+        <select id="fProject" onchange="applyFilters()"></select>
+        <label>Test Type:</label>
+        <select id="fTestType" onchange="applyFilters()"></select>
+        <input type="text" id="fSearch" placeholder="Search file / issue…" oninput="applyFilters()" style="width:200px;">
+        <button class="btn-clear" onclick="clearFilters()">Clear</button>
+        <span id="filterCount" style="font-size:12px;color:#57606a;"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Application</th>
+              <th>Project</th>
+              <th>Issue Type</th>
+              <th>Severity</th>
+              <th>Test Type</th>
+              <th>CWE</th>
+              <th>File / Location</th>
+              <th>First Detected</th>
+              <th>Triage</th>
+              <th>Link</th>
+            </tr>
+          </thead>
+          <tbody id="findingsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB: REMEDIATION -->
+    <div class="tab-pane" id="tab-remediation">
+      <div class="section-hdr">Remediation Guidance by CWE</div>
+      <div class="rem-grid" id="remGrid"></div>
+    </div>
+
+    <!-- TAB: EFFORT -->
+    <div class="tab-pane" id="tab-effort">
+      <div class="section-hdr">Effort Estimate &amp; Sprint Action Plan</div>
+      <div class="table-wrap" style="margin-bottom:20px;">
+        <table class="eff-table">
+          <thead>
+            <tr>
+              <th>Group / CWE</th>
+              <th>Findings</th>
+              <th>Unique Files</th>
+              <th>Estimated Effort</th>
+              <th>Regression Risk</th>
+              <th>Sprint Recommendation</th>
+            </tr>
+          </thead>
+          <tbody id="effortBody"></tbody>
+        </table>
+      </div>
+      <div class="section-hdr">Per-Finding Action Plan</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>File</th>
+              <th>CWE</th>
+              <th>Assign To</th>
+              <th>Action</th>
+              <th>Verify Via</th>
+              <th>Link</th>
+            </tr>
+          </thead>
+          <tbody id="actionBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB: AUTOMATION -->
+    <div class="tab-pane" id="tab-automation">
+      <div class="section-hdr">IBM Bob + IBM ICA End-to-End Automation</div>
+      <div class="auto-section">
+        <h3>How This Dashboard Works — Zero Manual Data Entry</h3>
+        <div class="pipeline">
+          <div class="pipe-step">1. Polaris Export<br>.xlsx / .csv</div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-step">2. Upload Here<br>or Bob Playground</div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-step">3. SheetJS<br>Auto-Parse</div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-step">4. CWE Engine<br>Maps Guidance</div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-step">5. Dashboard<br>Report</div>
+        </div>
+
+        <p style="font-size:13px;color:#374151;margin-bottom:10px;">
+          <strong>This HTML file is fully self-contained.</strong> It uses SheetJS to parse any .xlsx or .csv file
+          directly in the browser — no server, no upload to external systems, no manual copy-paste.
+          Every time the Polaris export changes, simply upload the new file and the dashboard regenerates instantly.
+        </p>
+
+        <div class="section-hdr" style="margin-top:14px;">IBM Bob Integration (Playground Workflow)</div>
+        <ul class="auto-list">
+          <li><strong>Step 1:</strong> Copy your Polaris <code>.xlsx</code> export into <code>C:\Users\002K6E744\.bob\playground\</code></li>
+          <li><strong>Step 2:</strong> Tell Bob: <em>"Process my vulnerability file vulnerabilities.xlsx"</em></li>
+          <li><strong>Step 3:</strong> Bob uses <code>read_xlsx</code> to read all rows and columns automatically</li>
+          <li><strong>Step 4:</strong> Bob calls <code>generate_batch_report</code> via the Polaris Remediation MCP Server</li>
+          <li><strong>Step 5:</strong> Bob renders this dashboard with full remediation guidance, code fixes, and action plans</li>
+        </ul>
+
+        <div class="section-hdr" style="margin-top:14px;">IBM ICA (Watsonx Assistant) Integration</div>
+        <ul class="auto-list">
+          <li><strong>Register Bob as an ICA Action:</strong> Expose the "Process Vulnerability File" workflow as an ICA skill</li>
+          <li><strong>Developer Workflow:</strong> Developer opens ICA chat → uploads or references the Polaris export → ICA triggers Bob → Bob reads xlsx, runs MCP, returns this report in chat</li>
+          <li><strong>No Security Expertise Required:</strong> Developers get contextual, file-specific remediation guidance without needing to understand SAST findings manually</li>
+          <li><strong>Scalable:</strong> Works for 10 findings or 10,000 — Bob batches MCP calls automatically</li>
+          <li><strong>Audit Trail:</strong> Every report is timestamped and linkable to the source Polaris finding IDs</li>
+        </ul>
+
+        <div class="section-hdr" style="margin-top:14px;">Supported Input Formats</div>
+        <ul class="auto-list">
+          <li><strong>.xlsx / .xls</strong> — Polaris Excel export (any sheet, any row count)</li>
+          <li><strong>.csv</strong> — Polaris CSV export with the same column headers</li>
+          <li><strong>Variable schema:</strong> The dashboard auto-detects column positions by name — column order does not matter</li>
+          <li><strong>New CWEs:</strong> The remediation engine auto-generates guidance for any CWE not in its built-in library</li>
+        </ul>
+      </div>
+    </div>
+
+  </div><!-- /dashboard -->
+
+  <div class="footer">
+    <p>Made with IBM Bob &nbsp;|&nbsp; Security Champion Dashboard &nbsp;|&nbsp; Powered by Polaris Remediation MCP &nbsp;|&nbsp; IBM ICA Integration</p>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════
+let allFindings = [];
+let filteredFindings = [];
+
+// ════════════════════════════════════════════════════
+//  UPLOAD & PARSE
+// ════════════════════════════════════════════════════
+const uploadZone = document.getElementById('uploadZone');
+const fileInput  = document.getElementById('fileInput');
+
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) processFile(f);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
+
+function processFile(file) {
+  document.getElementById('uploadSection').style.display = 'none';
+  document.getElementById('processing').classList.add('active');
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: null, raw: false });
+      allFindings = normalise(rows);
+      document.getElementById('fileInfo').textContent =
+        `📁 ${file.name}  ·  ${allFindings.length} findings loaded  ·  ${wb.SheetNames[0]}`;
+      setTimeout(() => {
+        document.getElementById('processing').classList.remove('active');
+        renderDashboard();
+        document.getElementById('dashboard').classList.add('active');
+      }, 400);
+    } catch(err) {
+      alert('Error reading file: ' + err.message);
+      resetDashboard();
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ════════════════════════════════════════════════════
+//  NORMALISE — map any column name variant to a standard key
+// ════════════════════════════════════════════════════
+const COL_MAP = {
+  application: ['application','app'],
+  project: ['project'],
+  issue_type: ['issue type','issuetype','issue_type','type'],
+  risk_score: ['risk score','risk_score','riskscore','score'],
+  severity: ['severity','sev'],
+  test_type: ['test type','test_type','testtype','scan type','scantype'],
+  cwe_id: ['cwe id','cwe_id','cweid','cwe'],
+  vuln_id: ['vulnerability id','vulnerability_id','vulnid','vuln id','id'],
+  location: ['location','file','filepath','file path'],
+  cisa_kev: ['cisa kev','cisa_kev','kev'],
+  fix_by: ['fix by','fix_by','fixby','due date','duedate'],
+  fix_by_status: ['fix by status','fix_by_status'],
+  triage_status: ['triage status','triage_status','triaged'],
+  owner: ['owner','assigned to'],
+  detected: ['first detected date','first_detected_date','detected','date'],
+  link: ['link','url','issue link']
+};
+
+function findCol(headers, keys) {
+  const h = headers.map(x => (x || '').toString().toLowerCase().trim());
+  for (const k of keys) { const i = h.indexOf(k); if (i >= 0) return headers[i]; }
+  return null;
+}
+
+function extractLink(val) {
+  if (!val) return '';
+  const m = String(val).match(/href=["']([^"']+)["']/);
+  return m ? m[1] : String(val).startsWith('http') ? val : '';
+}
+
+function normalise(rows) {
+  if (!rows.length) return [];
+  const headers = Object.keys(rows[0]);
+  const cols = {};
+  for (const [key, aliases] of Object.entries(COL_MAP)) { cols[key] = findCol(headers, aliases); }
+  return rows.map((r, i) => ({
+    _idx: i + 1,
+    application:  r[cols.application]  || '',
+    project:      r[cols.project]       || '',
+    issue_type:   r[cols.issue_type]    || '',
+    risk_score:   r[cols.risk_score]    || '',
+    severity:     (r[cols.severity]     || '').toLowerCase(),
+    test_type:    r[cols.test_type]     || '',
+    cwe_id:       r[cols.cwe_id]        || '',
+    vuln_id:      r[cols.vuln_id]       || '',
+    location:     r[cols.location]      || '',
+    cisa_kev:     r[cols.cisa_kev]      || '',
+    fix_by:       r[cols.fix_by]        || '',
+    fix_by_status:r[cols.fix_by_status] || '',
+    triage_status:r[cols.triage_status] || '',
+    owner:        r[cols.owner]         || '',
+    detected:     r[cols.detected]      || '',
+    link:         extractLink(r[cols.link])
+  }));
+}
+
+// ════════════════════════════════════════════════════
+//  RENDER DASHBOARD
+// ════════════════════════════════════════════════════
+function renderDashboard() {
+  filteredFindings = [...allFindings];
+  populateFilters();
+  renderKPIs();
+  renderCharts();
+  renderFindings();
+  renderRemediation();
+  renderEffort();
+}
+
+// ── KPIs ──
+function renderKPIs() {
+  const total  = allFindings.length;
+  const highs  = allFindings.filter(f => f.severity === 'high' || f.severity === 'critical').length;
+  const cwes   = [...new Set(allFindings.map(f => f.cwe_id).filter(Boolean))].length;
+  const projs  = [...new Set(allFindings.map(f => f.project).filter(Boolean))].length;
+  const files  = [...new Set(allFindings.map(f => f.location.split('/').pop()).filter(Boolean))].length;
+  document.getElementById('kpiGrid').innerHTML = `
+    <div class="kpi-card kpi-red"><div class="kpi-num">${total}</div><div class="kpi-label">Total Findings</div></div>
+    <div class="kpi-card kpi-orange"><div class="kpi-num">${highs}</div><div class="kpi-label">Critical / High</div></div>
+    <div class="kpi-card kpi-blue"><div class="kpi-num">${cwes}</div><div class="kpi-label">Distinct CWE Types</div></div>
+    <div class="kpi-card kpi-purple"><div class="kpi-num">${projs}</div><div class="kpi-label">Affected Projects</div></div>
+    <div class="kpi-card kpi-green"><div class="kpi-num">${files}</div><div class="kpi-label">Affected Files</div></div>`;
+}
+
+// ── CHARTS ──
+function renderCharts() {
+  // By CWE
+  const cweCounts = {};
+  allFindings.forEach(f => { if (f.cwe_id) cweCounts[f.cwe_id] = (cweCounts[f.cwe_id]||0)+1; });
+  const cweTop = Object.entries(cweCounts).sort((a,b) => b[1]-a[1]).slice(0,8);
+  const maxCwe = cweTop[0]?.[1] || 1;
+
+  // By Project
+  const projCounts = {};
+  allFindings.forEach(f => { if (f.project) projCounts[f.project] = (projCounts[f.project]||0)+1; });
+  const projTop = Object.entries(projCounts).sort((a,b) => b[1]-a[1]).slice(0,8);
+  const maxProj = projTop[0]?.[1] || 1;
+
+  const COLORS = ['#3b82d4','#7c5cd8','#c2410c','#166534','#1d4ed8','#b91c1c','#0891b2','#65a30d'];
+
+  document.getElementById('chartRow').innerHTML = `
+    <div class="chart-card">
+      <h4>Findings by CWE</h4>
+      ${cweTop.map(([k,v],i) => `
+        <div class="bar-row">
+          <div class="bar-label" title="${k}">${k}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/maxCwe*100)}%;background:${COLORS[i%COLORS.length]};"></div></div>
+          <div class="bar-count">${v}</div>
+        </div>`).join('')}
+    </div>
+    <div class="chart-card">
+      <h4>Findings by Project</h4>
+      ${projTop.map(([k,v],i) => `
+        <div class="bar-row">
+          <div class="bar-label" title="${k}">${k}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/maxProj*100)}%;background:${COLORS[i%COLORS.length]};"></div></div>
+          <div class="bar-count">${v}</div>
+        </div>`).join('')}
+    </div>`;
+}
+
+// ── FILTERS ──
+function populateFilters() {
+  const cwes  = ['', ...[...new Set(allFindings.map(f=>f.cwe_id).filter(Boolean))].sort()];
+  const projs = ['', ...[...new Set(allFindings.map(f=>f.project).filter(Boolean))].sort()];
+  const tests = ['', ...[...new Set(allFindings.map(f=>f.test_type).filter(Boolean))].sort()];
+  const sel = (id, vals) => {
+    const el = document.getElementById(id);
+    el.innerHTML = vals.map(v => `<option value="${v}">${v||'All'}</option>`).join('');
+  };
+  sel('fCwe', cwes); sel('fProject', projs); sel('fTestType', tests);
+}
+
+function applyFilters() {
+  const sev  = document.getElementById('fSeverity').value.toLowerCase();
+  const cwe  = document.getElementById('fCwe').value;
+  const proj = document.getElementById('fProject').value;
+  const tt   = document.getElementById('fTestType').value;
+  const q    = document.getElementById('fSearch').value.toLowerCase();
+  filteredFindings = allFindings.filter(f =>
+    (!sev  || f.severity === sev) &&
+    (!cwe  || f.cwe_id === cwe) &&
+    (!proj || f.project === proj) &&
+    (!tt   || f.test_type === tt) &&
+    (!q    || f.location.toLowerCase().includes(q) || f.issue_type.toLowerCase().includes(q) || f.project.toLowerCase().includes(q))
+  );
+  document.getElementById('filterCount').textContent = `Showing ${filteredFindings.length} of ${allFindings.length}`;
+  renderFindings();
+}
+
+function clearFilters() {
+  ['fSeverity','fCwe','fProject','fTestType'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('fSearch').value = '';
+  applyFilters();
+}
+
+// ── FINDINGS TABLE ──
+function sevBadge(s) {
+  const cls = s==='high'||s==='critical' ? 'badge-high' : s==='medium' ? 'badge-medium' : 'badge-low';
+  return `<span class="badge ${cls}">${s||'—'}</span>`;
+}
+function testBadge(t) {
+  return `<span class="badge ${t==='SAST'?'badge-sast':'badge-sca'}">${t||'—'}</span>`;
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return String(d).slice(0,10);
+}
+
+function renderFindings() {
+  const tbody = document.getElementById('findingsBody');
+  if (!filteredFindings.length) {
+    tbody.innerHTML = `<tr><td colspan="11" class="empty-state">No findings match the current filters.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filteredFindings.map((f,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${f.application||'—'}</td>
+      <td style="max-width:140px;word-break:break-word;">${f.project||'—'}</td>
+      <td style="max-width:160px;word-break:break-word;">${f.issue_type||'—'}</td>
+      <td>${sevBadge(f.severity)}</td>
+      <td>${testBadge(f.test_type)}</td>
+      <td><span class="badge badge-cwe">${f.cwe_id||'—'}</span></td>
+      <td class="mono" style="max-width:200px;">${(f.location.split('/').pop())||f.location||'—'}<br><span style="color:#94a3b8;font-size:10px;">${f.location}</span></td>
+      <td class="mono">${fmtDate(f.detected)}</td>
+      <td><span class="badge ${f.triage_status==='Not Triaged'?'badge-high':'badge-ok'}">${f.triage_status||'—'}</span></td>
+      <td>${f.link ? `<a href="${f.link}" target="_blank">View</a>` : '—'}</td>
+    </tr>`).join('');
+}
+
+// ════════════════════════════════════════════════════
+//  CWE REMEDIATION LIBRARY
+// ════════════════════════════════════════════════════
+const CWE_LIBRARY = {
+  'CWE-404': {
+    title: 'Improper Resource Shutdown or Release',
+    tech: 'C# / .NET / WPF',
+    what: 'Objects implementing <code>IDisposable</code> (SqlConnection, FileStream, Graphics, Bitmap, etc.) are allocated but never disposed, or disposal is bypassed when exceptions occur.',
+    impact: 'Resource exhaustion → Denial of Service (DoS). Handle leaks can destabilise the application, cause OutOfMemoryException crashes, and deny service to other users.',
+    effort: '4–8 hrs (batch fix across all files)',
+    risk: 'Low — additive <code>using</code> blocks, no logic change',
+    sprint: 'Current Sprint',
+    steps: [
+      'Identify all <code>IDisposable</code> allocations in each flagged file.',
+      'Wrap every local disposable in a <code>using</code> statement or C# 8+ <code>using</code> declaration.',
+      'For disposable class fields in partial classes: implement the full <code>IDisposable</code> pattern.',
+      'Check event handler subscriptions — unsubscribe in <code>Dispose()</code> or <code>Unloaded</code>.',
+      'For async code use <code>await using</code> to ensure disposal in async flows.',
+      'Re-trigger Polaris SAST scan — all findings in this group should clear simultaneously.'
+    ],
+    vuln: `// BAD: handle leaks if exception occurs before Close()
+SqlConnection conn = new SqlConnection(connStr);
+conn.Open();
+SqlCommand cmd = new SqlCommand(sql, conn);
+SqlDataReader reader = cmd.ExecuteReader();
+// ... exception here = connection leak ...
+reader.Close();  // may be skipped
+conn.Close();    // may be skipped`,
+    fix: `// GOOD: using guarantees disposal on all code paths
+using (var conn = new SqlConnection(connStr))
+{
+    conn.Open();
+    using (var cmd = new SqlCommand(sql, conn))
+    using (var reader = cmd.ExecuteReader())
+    {
+        while (reader.Read()) { /* process */ }
+    }
+}
+
+// C# 8+ using declaration
+using var conn2 = new SqlConnection(connStr);
+await conn2.OpenAsync();`
+  },
+  'CWE-284': {
+    title: 'Improper Access Control',
+    tech: 'Jenkins / Kubernetes YAML',
+    what: 'Jenkins agent pod specs have excessive privileges (<code>privileged: true</code>), missing security contexts, or insufficient RBAC scoping — allowing any pipeline to run on any agent tier.',
+    impact: 'An attacker who compromises a build job can pivot across environments (DEV → QA → PRD), exfiltrate secrets, or escalate privileges via an over-permissioned agent.',
+    effort: '2–4 hrs per YAML file',
+    risk: 'Medium — infrastructure/platform change, requires testing in DEV first',
+    sprint: 'Current Sprint',
+    steps: [
+      'Review all YAML files for <code>privileged: true</code>, missing <code>runAsNonRoot</code>, and use of the <code>default</code> service account.',
+      'Set <code>runAsNonRoot: true</code> and define a non-root <code>runAsUser</code> UID.',
+      'Add <code>allowPrivilegeEscalation: false</code> and <code>capabilities: { drop: ["ALL"] }</code>.',
+      'Create dedicated Kubernetes service accounts per environment with scoped RBAC.',
+      'Use environment-specific agent labels and enforce pipeline isolation.',
+      'Enable Jenkins Role Strategy plugin to restrict which jobs can use each agent.'
+    ],
+    vuln: `# BAD — root, privileged, default service account
+spec:
+  serviceAccountName: default
+  containers:
+    - name: jnlp
+      image: jenkins/inbound-agent:latest
+      securityContext:
+        privileged: true`,
+    fix: `# GOOD — non-root, non-privileged, scoped RBAC
+spec:
+  serviceAccountName: jenkins-agent-prd-sa
+  automountServiceAccountToken: false
+  containers:
+    - name: jnlp
+      image: jenkins/inbound-agent:3256.v88a_f6e922152-1
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+  nodeSelector:
+    env: prd`
+  },
+  'CWE-89': {
+    title: 'SQL Injection',
+    tech: 'Any / Database',
+    what: 'User-controlled input is concatenated directly into SQL queries without parameterisation.',
+    impact: 'Complete database compromise — data exfiltration, modification, deletion, and potential server takeover.',
+    effort: '2–4 hrs per occurrence',
+    risk: 'Low — parameterised queries are a drop-in replacement',
+    sprint: 'Immediate / Current Sprint',
+    steps: [
+      'Locate every dynamic SQL string construction using user input.',
+      'Replace string concatenation with parameterised queries (<code>SqlCommand.Parameters</code>) or an ORM.',
+      'Use stored procedures with parameter binding for complex queries.',
+      'Validate and whitelist all user inputs at the controller/service boundary.',
+      'Enable SQL query logging to detect injection attempts in production.'
+    ],
+    vuln: `// BAD: SQL Injection risk
+string sql = "SELECT * FROM Users WHERE name = '" + userName + "'";
+var cmd = new SqlCommand(sql, conn);`,
+    fix: `// GOOD: Parameterised query
+string sql = "SELECT * FROM Users WHERE name = @name";
+using var cmd = new SqlCommand(sql, conn);
+cmd.Parameters.AddWithValue("@name", userName);`
+  },
+  'CWE-79': {
+    title: 'Cross-Site Scripting (XSS)',
+    tech: 'Web / JavaScript / HTML',
+    what: 'User-supplied data is rendered in the browser without proper encoding, allowing script injection.',
+    impact: 'Session hijacking, credential theft, defacement, malware distribution.',
+    effort: '1–2 hrs per occurrence',
+    risk: 'Low — output encoding is non-breaking',
+    sprint: 'Current Sprint',
+    steps: [
+      'Identify all locations where user data is rendered in HTML output.',
+      'Apply context-aware output encoding (HTML, attribute, JavaScript, URL).',
+      'Use a templating engine that auto-escapes by default (Razor, Thymeleaf, etc.).',
+      'Implement a strict Content-Security-Policy (CSP) header.',
+      'Validate and sanitise rich-text input using an allowlist-based library (DOMPurify).'
+    ],
+    vuln: `// BAD: Direct output of user input
+document.getElementById('name').innerHTML = userInput;`,
+    fix: `// GOOD: Use textContent (auto-escapes HTML)
+document.getElementById('name').textContent = userInput;
+// Or for server-side: @Html.Encode(userInput) in Razor`
+  },
+  'CWE-22': {
+    title: 'Path Traversal',
+    tech: 'File System',
+    what: 'User-controlled input is used to construct file paths without validation, allowing traversal outside the intended directory.',
+    impact: 'Arbitrary file read/write, configuration file exposure, code execution.',
+    effort: '2–3 hrs per occurrence',
+    risk: 'Low',
+    sprint: 'Current Sprint',
+    steps: [
+      'Canonicalise all file paths using <code>Path.GetFullPath()</code>.',
+      'Verify the resolved path starts with the expected base directory.',
+      'Use an allowlist of permitted file names/extensions.',
+      'Never pass raw user input directly to file system APIs.'
+    ],
+    vuln: `// BAD: Path traversal possible
+string path = baseDir + userInput;
+var content = File.ReadAllText(path);`,
+    fix: `// GOOD: Canonicalise and validate
+string path = Path.GetFullPath(Path.Combine(baseDir, userInput));
+if (!path.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase))
+    throw new UnauthorizedAccessException();
+var content = File.ReadAllText(path);`
+  },
+  'CWE-798': {
+    title: 'Use of Hard-coded Credentials',
+    tech: 'Any',
+    what: 'Credentials, API keys, or secrets are embedded directly in source code.',
+    impact: 'If the repository is exposed, credentials are immediately compromised and can be used to access production systems.',
+    effort: '1–2 hrs per occurrence + secrets rotation',
+    risk: 'Low — externalization only, no logic change',
+    sprint: 'Immediate',
+    steps: [
+      'Remove all hard-coded secrets from source code immediately.',
+      'Rotate every compromised credential — assume it has been exfiltrated.',
+      'Store secrets in a secrets manager (Azure Key Vault, HashiCorp Vault, AWS Secrets Manager).',
+      'Inject secrets at runtime via environment variables or managed identity.',
+      'Add a pre-commit hook (e.g., git-secrets, truffleHog) to prevent future commits.'
+    ],
+    vuln: `// BAD: Hard-coded credential
+string apiKey = "sk-prod-abc123xyz789";`,
+    fix: `// GOOD: Read from environment / secrets manager
+string apiKey = Environment.GetEnvironmentVariable("API_KEY")
+    ?? throw new InvalidOperationException("API_KEY not set");`
+  }
+};
+
+function getRemediation(cwe) {
+  if (CWE_LIBRARY[cwe]) return CWE_LIBRARY[cwe];
+  return {
+    title: 'Security Vulnerability',
+    tech: 'General',
+    what: `This finding maps to <strong>${cwe}</strong>. Review the Polaris issue link for the exact taint path and flagged code.`,
+    impact: 'Severity reported as HIGH — prioritise within the current sprint.',
+    effort: '2–6 hrs',
+    risk: 'Medium',
+    sprint: 'Current Sprint',
+    steps: [
+      'Open the flagged file and locate the exact line(s) referenced in the finding.',
+      'Trace the data flow: identify where the input originates.',
+      'Check whether input is validated, sanitised, or encoded before use.',
+      'Apply the principle of least privilege to the affected component.',
+      'Re-run the Polaris scan after the fix to confirm resolution.'
+    ],
+    vuln: '// See Polaris issue link for the exact vulnerable snippet.',
+    fix: '// Apply input validation, output encoding, and safe API equivalents.'
+  };
+}
+
+// ── REMEDIATION CARDS ──
+function renderRemediation() {
+  const cweCounts = {};
+  const cweFiles  = {};
+  allFindings.forEach(f => {
+    if (!f.cwe_id) return;
+    cweCounts[f.cwe_id] = (cweCounts[f.cwe_id]||0)+1;
+    if (!cweFiles[f.cwe_id]) cweFiles[f.cwe_id] = new Set();
+    cweFiles[f.cwe_id].add(f.location.split('/').pop());
+  });
+
+  const html = Object.entries(cweCounts).sort((a,b)=>b[1]-a[1]).map(([cwe, count]) => {
+    const r = getRemediation(cwe);
+    return `
+    <div class="rem-card">
+      <div class="rem-card-hdr">
+        <span class="badge badge-cwe">${cwe}</span>
+        <span class="cwe-label">${r.title}</span>
+        <span class="count">${count} finding${count>1?'s':''}</span>
+        <span style="margin-left:auto;font-size:12px;color:#57606a;">${r.tech}</span>
+      </div>
+      <div class="rem-card-body">
+        <p><strong>What is it?</strong> ${r.what}</p>
+        <p><strong>Security Impact:</strong> ${r.impact}</p>
+        <p><strong>Affected files:</strong> <code>${[...cweFiles[cwe]].join('</code>, <code>')}</code></p>
+
+        <div class="steps">
+          <strong style="font-size:13px;">Remediation Steps:</strong>
+          ${r.steps.map((s,i) => `
+            <div class="step">
+              <div class="sn">${i+1}</div>
+              <p>${s}</p>
+            </div>`).join('')}
+        </div>
+
+        <div class="code-label">VULNERABLE Pattern</div>
+        <div class="code-block vuln">${escHtml(r.vuln)}</div>
+        <div class="code-label">FIXED Pattern</div>
+        <div class="code-block fix">${escHtml(r.fix)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('remGrid').innerHTML = html || '<div class="empty-state">No CWE data found.</div>';
+}
+
+// ── EFFORT + ACTION PLAN ──
+function renderEffort() {
+  const cweCounts = {};
+  const cweFiles  = {};
+  const cweIssue  = {};
+  allFindings.forEach(f => {
+    if (!f.cwe_id) return;
+    cweCounts[f.cwe_id] = (cweCounts[f.cwe_id]||0)+1;
+    if (!cweFiles[f.cwe_id]) cweFiles[f.cwe_id] = new Set();
+    cweFiles[f.cwe_id].add(f.location.split('/').pop());
+    if (!cweIssue[f.cwe_id]) cweIssue[f.cwe_id] = f.issue_type;
+  });
+
+  document.getElementById('effortBody').innerHTML = Object.entries(cweCounts).sort((a,b)=>b[1]-a[1]).map(([cwe, count]) => {
+    const r = getRemediation(cwe);
+    return `<tr>
+      <td><span class="badge badge-cwe">${cwe}</span> ${cweIssue[cwe]||''}</td>
+      <td><strong>${count}</strong></td>
+      <td>${[...cweFiles[cwe]].length} file(s)</td>
+      <td>${r.effort}</td>
+      <td>${r.risk}</td>
+      <td><span class="badge badge-high">${r.sprint}</span></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('actionBody').innerHTML = allFindings.map((f,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td class="mono" style="max-width:160px;">${f.location.split('/').pop()||f.location}</td>
+      <td><span class="badge badge-cwe">${f.cwe_id||'—'}</span></td>
+      <td>${f.owner||'Assign to file owner'}</td>
+      <td>Apply ${(getRemediation(f.cwe_id)).title} fix</td>
+      <td>Re-scan Polaris + unit test</td>
+      <td>${f.link?`<a href="${f.link}" target="_blank">View</a>`:'—'}</td>
+    </tr>`).join('');
+}
+
+// ════════════════════════════════════════════════════
+//  UTILS
+// ════════════════════════════════════════════════════
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    const names = ['findings','remediation','effort','automation'];
+    t.classList.toggle('active', names[i] === name);
+  });
+  document.querySelectorAll('.tab-pane').forEach(p => {
+    p.classList.toggle('active', p.id === 'tab-'+name);
+  });
+}
+
+function resetDashboard() {
+  allFindings = []; filteredFindings = [];
+  document.getElementById('dashboard').classList.remove('active');
+  document.getElementById('uploadSection').style.display = '';
+  document.getElementById('processing').classList.remove('active');
+  document.getElementById('fileInput').value = '';
+}
+
+function exportCSV() {
+  const headers = ['#','Application','Project','Issue Type','Severity','Test Type','CWE ID','Vulnerability ID','Location','Triage Status','Owner','Detected','Link'];
+  const rows = filteredFindings.map((f,i) => [
+    i+1, f.application, f.project, f.issue_type, f.severity, f.test_type,
+    f.cwe_id, f.vuln_id, f.location, f.triage_status, f.owner, fmtDate(f.detected), f.link
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(c => `"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'vulnerability-remediation-export.csv'; a.click();
+}
+</script>
+
+</body>
+</html>
