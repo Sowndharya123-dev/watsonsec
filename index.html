@@ -433,7 +433,10 @@
   /* Panel input bar */
   .panel-input-bar {
     padding: 10px 12px; background: #fff; border-top: 1px solid #e5e7eb;
-    display: flex; gap: 6px; align-items: flex-end; flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;
+  }
+  .panel-input-row {
+    display: flex; gap: 6px; align-items: flex-end;
   }
   .panel-input-bar textarea {
     flex: 1; resize: none; border: 1px solid #d1d5db; border-radius: 8px;
@@ -442,6 +445,19 @@
     background: #f7f8fa; color: #1f2328; overflow-y: auto;
   }
   .panel-input-bar textarea:focus { outline: none; border-color: #3b82d4; background: #fff; }
+  .input-meta-row {
+    display: flex; align-items: center; gap: 8px; padding: 0 2px;
+  }
+  .char-counter { font-size: 10px; color: #94a3b8; margin-left: auto; }
+  .char-counter.warn { color: #c2410c; font-weight: 700; }
+  .chat-file-attached {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: #eff6ff; border: 1px solid #93c5fd; border-radius: 4px;
+    padding: 2px 8px; font-size: 11px; color: #1d4ed8; font-weight: 600;
+  }
+  .chat-file-attached .remove-file {
+    cursor: pointer; color: #b91c1c; font-weight: 700; margin-left: 4px;
+  }
   .btn-ica-send {
     background: #3b82d4; color: #fff; border: none; border-radius: 8px;
     padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
@@ -449,6 +465,31 @@
   }
   .btn-ica-send:hover { background: #2563eb; }
   .btn-ica-send:disabled { background: #93c5fd; cursor: not-allowed; }
+  /* Upload button inside chat */
+  .btn-chat-upload {
+    background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 8px;
+    width: 38px; height: 38px; font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; align-self: flex-end; color: #57606a;
+    transition: background .15s, border-color .15s;
+  }
+  .btn-chat-upload:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+  /* Copy button on agent messages */
+  .btn-copy-msg {
+    font-size: 10px; font-weight: 700; color: #57606a;
+    background: #f7f8fa; border: 1px solid #e5e7eb;
+    border-radius: 4px; padding: 1px 7px; cursor: pointer;
+    line-height: 1.5; white-space: nowrap;
+  }
+  .btn-copy-msg:hover { background: #e5e7eb; }
+  .btn-copy-msg.copied { background: #f0fdf4; border-color: #86efac; color: #166534; }
+  /* ICA agent link inside reply */
+  .ica-reply-footer {
+    margin-top: 8px; padding-top: 7px; border-top: 1px solid #f0f0f0;
+    font-size: 11px; color: #57606a; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .ica-reply-footer a { font-size: 11px; font-weight: 700; color: #0f62fe; }
+  .ica-reply-footer .reply-ts { color: #94a3b8; margin-left: auto; }
 
   /* Toggle button (FAB) */
   #btnIcaToggle {
@@ -848,13 +889,15 @@
   <!-- Quick prompt chips -->
   <div class="panel-chips-bar">
     <div class="chips-label">Quick prompts</div>
-    <div class="chips-scroll">
+    <div class="chips-scroll" id="chatChipsScroll">
       <span class="prompt-chip" onclick="sendChip('Summarise all critical and high severity findings')">📊 Summarise findings</span>
       <span class="prompt-chip" onclick="sendChip('What should I fix first?')">🎯 Fix priority</span>
       <span class="prompt-chip" onclick="sendChip('Explain CWE-798 and how to fix it')">🔑 CWE-798 fix</span>
       <span class="prompt-chip" onclick="sendChip('Explain CWE-89 SQL injection fix')">💉 SQL Injection</span>
       <span class="prompt-chip" onclick="sendChip('Give me a sprint plan for all findings')">📅 Sprint plan</span>
       <span class="prompt-chip" onclick="sendChip('Explain this report to a non-technical manager')">👔 Manager summary</span>
+      <span class="prompt-chip" onclick="sendChip('List all OWASP Top 10 issues in my report')">🌐 OWASP Top 10</span>
+      <span class="prompt-chip" onclick="sendChip('Give me a manager-level risk summary')">📣 Risk summary</span>
     </div>
   </div>
 
@@ -863,16 +906,37 @@
     <div class="chat-empty" id="chatEmptyState">
       <div class="empty-icon">🤖</div>
       <h4>Security Champion AI Assistant</h4>
-      <p>Type any vulnerability question below or click a quick prompt above.<br>
-      Powered by the same AI as your ICA agent.</p>
+      <p>Type any question — e.g. <em>"Explain CWE-89"</em>, <em>"Fix CWE-476 in Java"</em>,<br>
+         <em>"What should I fix first?"</em>, or upload a file below.<br>
+         Press <strong>Enter</strong> to send · <strong>Shift+Enter</strong> for new line.</p>
     </div>
   </div>
 
   <!-- Input bar -->
   <div class="panel-input-bar">
-    <textarea id="icaPromptInput" rows="1" placeholder="Ask about any vulnerability, CWE, or fix…"
-              oninput="autoResizeTextarea(this)" onkeydown="handlePromptKey(event)"></textarea>
-    <button class="btn-ica-send" id="btnIcaSend" onclick="sendIcaPrompt()">Send ▶</button>
+    <!-- file attachment indicator -->
+    <div class="input-meta-row" id="chatFileRow" style="display:none;">
+      <span class="chat-file-attached" id="chatFileLabel">
+        📎 <span id="chatFileNameSpan"></span>
+        <span class="remove-file" title="Remove file" onclick="removeChatFile()">✕</span>
+      </span>
+    </div>
+    <div class="panel-input-row">
+      <!-- hidden file input for chat upload -->
+      <input type="file" id="chatFileInput" accept=".xlsx,.xls,.csv" style="display:none;"
+             onchange="handleChatFileUpload(event)">
+      <button class="btn-chat-upload" title="Upload .xlsx or .csv file"
+              onclick="document.getElementById('chatFileInput').click()">📎</button>
+      <textarea id="icaPromptInput" rows="1"
+                placeholder="Ask anything — e.g. Explain CWE-89, Fix CWE-476 in Java, What should I fix first?…"
+                oninput="autoResizeTextarea(this); updateCharCounter(this);"
+                onkeydown="handlePromptKey(event)"></textarea>
+      <button class="btn-ica-send" id="btnIcaSend" onclick="sendIcaPrompt()">Send ▶</button>
+    </div>
+    <div class="input-meta-row">
+      <span style="font-size:10px;color:#94a3b8;">Enter to send &nbsp;·&nbsp; Shift+Enter for new line</span>
+      <span class="char-counter" id="charCounter">0 / 1000</span>
+    </div>
   </div>
 </div>
 
@@ -1308,13 +1372,26 @@ function appendMessage(role, text) {
   const div = document.createElement('div');
   div.className = 'msg ' + role;
 
+  const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
   const pinBtn = role === 'agent'
-    ? `<button class="btn-pin-msg" onclick="pinToDashboard(this.closest('.msg'))" title="Pin this analysis to the dashboard tab">📌 Pin to Dashboard</button>`
+    ? `<button class="btn-pin-msg" onclick="pinToDashboard(this.closest('.msg'))" title="Pin this analysis to the dashboard tab">📌 Pin</button>`
+    : '';
+  const copyBtn = role === 'agent'
+    ? `<button class="btn-copy-msg" onclick="copyMsgText(this)" title="Copy response to clipboard">📋 Copy</button>`
     : '';
 
+  const footer = role === 'agent'
+    ? `<div class="ica-reply-footer">
+        <a href="https://remea.ica.ibm.com/ica/curatorai/apps/ui/new-chat/6a5662f063eafa2b20da8d20"
+           target="_blank" rel="noopener noreferrer">💬 Ask ICA Agent directly →</a>
+        <span class="reply-ts">${now}</span>
+       </div>`
+    : `<div style="font-size:10px;color:#94a3b8;margin-top:4px;text-align:right;">${now}</div>`;
+
   div.innerHTML = `
-    <div class="msg-label">${role === 'user' ? 'You' : 'Security Champion AI'}${pinBtn}</div>
-    <div class="msg-bubble">${formatResponse(text)}</div>`;
+    <div class="msg-label">${role === 'user' ? 'You' : 'Security Champion AI'}${pinBtn}${copyBtn}</div>
+    <div class="msg-bubble">${formatResponse(text)}${footer}</div>`;
   history.appendChild(div);
   scrollChat();
 }
@@ -1358,10 +1435,72 @@ function clearChat() {
     </div>`;
 }
 
-// ── Textarea auto-resize ──────────────────────────────
+// ── Textarea auto-resize + char counter ──────────────
 function autoResizeTextarea(el) {
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+function updateCharCounter(el) {
+  const counter = document.getElementById('charCounter');
+  if (!counter) return;
+  const len = el.value.length;
+  const max = 1000;
+  counter.textContent = `${len} / ${max}`;
+  counter.classList.toggle('warn', len > max * 0.85);
+  if (len > max) el.value = el.value.slice(0, max);
+}
+
+// ── Chat-panel file upload ────────────────────────────
+let chatUploadedFileName = '';
+let chatUploadedFileText = '';
+
+function handleChatFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: null, raw: false });
+      chatUploadedFileName = file.name;
+      chatUploadedFileText = rows.map((r, i) =>
+        'Row ' + (i+1) + ': ' + Object.entries(r).map(([k,v]) => k + '=' + v).join(' | ')
+      ).join('\n');
+      // Also feed into the main dashboard state so AI has context
+      uploadedFileName = chatUploadedFileName;
+      uploadedFileText = chatUploadedFileText;
+      // Show attachment badge
+      document.getElementById('chatFileNameSpan').textContent = file.name;
+      document.getElementById('chatFileRow').style.display = 'flex';
+      showToast('📎 ' + file.name + ' attached to chat');
+      // Auto-send a summary
+      sendToIca('Summarise all critical and high severity findings', false);
+    } catch(err) {
+      showToast('❌ Could not read file: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  event.target.value = ''; // allow re-upload of same file
+}
+
+function removeChatFile() {
+  chatUploadedFileName = '';
+  chatUploadedFileText = '';
+  document.getElementById('chatFileRow').style.display = 'none';
+  document.getElementById('chatFileNameSpan').textContent = '';
+}
+
+// ── Copy agent message text ───────────────────────────
+function copyMsgText(btn) {
+  const bubble = btn.closest('.msg').querySelector('.msg-bubble');
+  const text = bubble ? (bubble.innerText || bubble.textContent || '') : '';
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✅ Copied';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 Copy'; btn.classList.remove('copied'); }, 2000);
+  });
 }
 
 // ── Enter to send ─────────────────────────────────────
