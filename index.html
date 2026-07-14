@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Security Champion Dashboard — Vulnerability Remediation</title>
-<!-- SheetJS for in-browser Excel parsing -->
-<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<!-- SheetJS for in-browser Excel parsing — local copy so it works offline/publicly -->
+<script src="xlsx.full.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -23,6 +23,14 @@
   .topnav .subtitle { font-size: 12px; color: #94a3b8; margin-left: 4px; }
   .topnav .spacer { flex: 1; }
   .topnav .nav-badge { background: #3b82d4; border-radius: 12px; padding: 2px 10px; font-size: 11px; font-weight: 600; }
+  .nav-ica-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #0f62fe; color: #fff; text-decoration: none;
+    border-radius: 6px; padding: 5px 14px; font-size: 12px; font-weight: 700;
+    border: 1px solid #0043ce; white-space: nowrap; letter-spacing: .2px;
+    transition: background .15s;
+  }
+  .nav-ica-btn:hover { background: #0043ce; text-decoration: none; color: #fff; }
 
   /* ── LAYOUT ── */
   .main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
@@ -61,11 +69,24 @@
   .kpi-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; }
   .kpi-card .kpi-num  { font-size: 28px; font-weight: 700; }
   .kpi-card .kpi-label { font-size: 11px; color: #57606a; margin-top: 2px; }
+  .kpi-card .kpi-hint { font-size: 10px; color: #94a3b8; margin-top: 4px; font-style: italic; }
   .kpi-red  .kpi-num { color: #b91c1c; }
   .kpi-orange .kpi-num { color: #c2410c; }
   .kpi-purple .kpi-num { color: #7c3aed; }
   .kpi-blue .kpi-num { color: #1d4ed8; }
   .kpi-green .kpi-num { color: #166534; }
+
+  /* ── PRIORITY BANNER ── */
+  .priority-banner { background: #fff; border: 2px solid #f59e0b; border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; }
+  .priority-banner h3 { font-size: 14px; font-weight: 700; color: #92400e; margin-bottom: 10px; }
+  .priority-list { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+  .priority-item { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 12px; }
+  .priority-item .p-rank { font-size: 10px; font-weight: 700; color: #92400e; text-transform: uppercase; margin-bottom: 4px; }
+  .priority-item .p-cwe { font-size: 13px; font-weight: 700; color: #1f2328; }
+  .priority-item .p-count { font-size: 11px; color: #57606a; margin-top: 2px; }
+  .priority-item .p-action { font-size: 11px; color: #3b82d4; margin-top: 6px; cursor: pointer; font-weight: 600; }
+  .priority-item .p-action:hover { text-decoration: underline; }
+  @media (max-width: 700px) { .priority-list { grid-template-columns: 1fr; } }
 
   /* ── SECTION HEADER ── */
   .section-hdr {
@@ -110,12 +131,16 @@
   /* ── REMEDIATION CARDS ── */
   .rem-grid { display: grid; gap: 16px; }
   .rem-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
-  .rem-card-hdr { background: #f7f8fa; border-bottom: 1px solid #e5e7eb; padding: 10px 14px; display: flex; align-items: center; gap: 8px; }
+  .rem-card-hdr { background: #f7f8fa; border-bottom: 1px solid #e5e7eb; padding: 10px 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .rem-card-hdr .cwe-label { font-weight: 700; font-size: 13px; }
   .rem-card-hdr .count { background: #b91c1c; color: #fff; border-radius: 12px; padding: 1px 8px; font-size: 11px; font-weight: 700; }
   .rem-card-body { padding: 14px; }
   .rem-card-body p { font-size: 13px; color: #374151; margin-bottom: 8px; }
   .rem-card-body strong { color: #1f2328; }
+  .rem-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin: 10px 0 14px; }
+  .rem-summary-item { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px 10px; font-size: 11px; }
+  .rem-summary-item .rs-label { color: #57606a; margin-bottom: 2px; }
+  .rem-summary-item .rs-val { font-weight: 700; color: #1f2328; font-size: 12px; }
 
   /* Steps */
   .steps { margin: 10px 0; }
@@ -124,7 +149,10 @@
   .step p { font-size: 13px; color: #374151; }
 
   /* Code blocks */
-  .code-label { font-size: 11px; font-weight: 700; color: #57606a; margin: 10px 0 4px; }
+  .code-label { font-size: 11px; font-weight: 700; color: #57606a; margin: 10px 0 4px; display: flex; align-items: center; justify-content: space-between; }
+  .btn-copy { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 600; cursor: pointer; color: #374151; }
+  .btn-copy:hover { background: #e5e7eb; }
+  .btn-copy.copied { background: #f0fdf4; border-color: #86efac; color: #166534; }
   .code-block { border-radius: 6px; padding: 12px 14px; font-family: "Consolas","Courier New",monospace; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; margin-bottom: 8px; }
   .code-block.vuln { background: #fef9f9; border: 1px solid #fca5a5; }
   .code-block.fix  { background: #f0fdf4; border: 1px solid #86efac; }
@@ -186,6 +214,266 @@
     .pipeline { flex-direction: column; }
     .pipe-arrow { transform: rotate(90deg); }
   }
+
+  /* ══════════════════════════════════════════
+     ICA BUILT-IN CHAT PANEL
+     Self-contained — prompt input + response
+     displayed entirely within the dashboard.
+  ══════════════════════════════════════════ */
+
+  /* Setup banner */
+  #icaSetupBanner {
+    background: #fffbeb; border: 1px solid #f59e0b; border-radius: 10px;
+    padding: 16px 20px; margin-bottom: 20px; display: flex;
+    align-items: flex-start; gap: 14px;
+  }
+  #icaSetupBanner .setup-icon { font-size: 28px; flex-shrink: 0; }
+  #icaSetupBanner h4 { font-size: 14px; font-weight: 700; color: #92400e; margin-bottom: 6px; }
+  #icaSetupBanner p  { font-size: 12px; color: #78350f; margin-bottom: 10px; }
+  .ica-config-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+  .ica-config-form label { font-size: 11px; font-weight: 600; color: #374151; display: block; margin-bottom: 3px; }
+  .ica-config-form input {
+    padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 5px;
+    font-size: 12px; width: 320px; background: #fff;
+  }
+  .btn-ica-connect {
+    background: #3b82d4; color: #fff; border: none; border-radius: 6px;
+    padding: 7px 18px; font-size: 12px; font-weight: 700; cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-ica-connect:hover { background: #2563eb; }
+  .btn-provider {
+    background: #fff; border: 2px solid #e5e7eb; border-radius: 6px;
+    padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+    color: #374151; white-space: nowrap;
+  }
+  .btn-provider:hover { border-color: #3b82d4; color: #1d4ed8; }
+  .btn-provider.active { border-color: #1d4ed8; background: #eff6ff; color: #1d4ed8; }
+  .btn-ica-connect:disabled { background: #93c5fd; cursor: not-allowed; }
+
+  /* ── QUICK PROMPT CHIPS ── */
+  .panel-chips-bar {
+    padding: 10px 14px; border-bottom: 1px solid #e5e7eb;
+    background: #fff; flex-shrink: 0;
+  }
+  .panel-chips-bar .chips-label {
+    font-size: 10px; font-weight: 700; color: #57606a;
+    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px;
+  }
+  .chips-scroll { display: flex; flex-wrap: wrap; gap: 5px; }
+  .prompt-chip {
+    display: inline-block; background: #eff6ff; border: 1px solid #93c5fd;
+    border-radius: 12px; padding: 3px 10px; font-size: 11px; color: #1d4ed8;
+    cursor: pointer; font-weight: 600; white-space: nowrap;
+  }
+  .prompt-chip:hover { background: #dbeafe; }
+
+  /* ── CONVERSATION HISTORY ── */
+  #icaChatHistory {
+    flex: 1; overflow-y: auto; padding: 14px 14px 6px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+
+  /* Message bubbles */
+  .msg { display: flex; flex-direction: column; max-width: 90%; }
+  .msg.user  { align-self: flex-end; align-items: flex-end; }
+  .msg.agent { align-self: flex-start; align-items: flex-start; }
+
+  .msg-label {
+    font-size: 10px; font-weight: 700; color: #57606a;
+    margin-bottom: 3px; text-transform: uppercase; letter-spacing: .4px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .msg.user  .msg-label { color: #1d4ed8; }
+  .msg.agent .msg-label { color: #166534; }
+
+  /* Pin-to-dashboard button on agent messages */
+  .btn-pin-msg {
+    font-size: 10px; font-weight: 700; color: #7c5cd8;
+    background: #f3f0ff; border: 1px solid #c4b5fd;
+    border-radius: 4px; padding: 1px 7px; cursor: pointer;
+    line-height: 1.5; white-space: nowrap;
+  }
+  .btn-pin-msg:hover { background: #7c5cd8; color: #fff; }
+
+  .msg-bubble {
+    padding: 9px 13px; border-radius: 10px; font-size: 13px;
+    line-height: 1.6; word-break: break-word;
+  }
+  .msg.user  .msg-bubble {
+    background: #1d4ed8; color: #fff;
+    border-bottom-right-radius: 3px;
+  }
+  .msg.agent .msg-bubble {
+    background: #fff; color: #1f2328;
+    border: 1px solid #e5e7eb; border-bottom-left-radius: 3px;
+  }
+  .msg.agent .msg-bubble pre {
+    background: #f0f0f0; border-radius: 5px; padding: 8px 10px;
+    font-size: 11px; overflow-x: auto; margin: 6px 0;
+    font-family: "Consolas","Courier New",monospace;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .msg.agent .msg-bubble code {
+    background: #f0f0f0; border-radius: 3px; padding: 1px 4px;
+    font-size: 11px; font-family: "Consolas","Courier New",monospace;
+  }
+
+  /* ── ICA pinned analysis card (shown in IBM Bob + ICA tab) ─── */
+  .ica-analysis-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+    overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+  .ica-card-hdr {
+    background: #f0f4ff; border-bottom: 1px solid #d1d9f0;
+    padding: 9px 14px; display: flex; align-items: center; gap: 8px;
+    font-size: 12px;
+  }
+  .ica-card-badge {
+    font-weight: 700; color: #1d4ed8; flex: 1;
+  }
+  .ica-card-ts {
+    color: #57606a; font-size: 11px;
+  }
+  .ica-card-section {
+    padding: 12px 16px;
+    border-top: 1px solid #f3f4f6;
+  }
+  .ica-card-section:first-of-type { border-top: none; }
+  .ica-section-title {
+    font-size: 12px; font-weight: 700; color: #374151;
+    text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px;
+  }
+  .ica-section-body {
+    font-size: 13px; color: #1f2328; line-height: 1.7;
+  }
+  .ica-section-body.ica-code pre {
+    background: #1e1e2e; color: #cdd6f4;
+    border-radius: 6px; padding: 12px 14px;
+    font-size: 12px; overflow-x: auto; margin: 0;
+    font-family: "Consolas","Courier New",monospace;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .ica-tab-placeholder {
+    text-align: center; padding: 36px 20px; color: #57606a; font-size: 13px;
+    border: 2px dashed #e5e7eb; border-radius: 10px; margin-bottom: 20px;
+  }
+  .ica-tab-placeholder strong { color: #7c5cd8; }
+
+  /* Typing indicator */
+  .typing-indicator {
+    display: flex; gap: 4px; align-items: center;
+    padding: 10px 14px; align-self: flex-start;
+  }
+  .typing-indicator span {
+    width: 7px; height: 7px; background: #7c5cd8; border-radius: 50%;
+    animation: bounce .9s infinite;
+  }
+  .typing-indicator span:nth-child(2) { animation-delay: .15s; }
+  .typing-indicator span:nth-child(3) { animation-delay: .30s; }
+  @keyframes bounce {
+    0%,80%,100% { transform: translateY(0); }
+    40%          { transform: translateY(-6px); }
+  }
+
+  /* Empty state */
+  .chat-empty {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; color: #57606a; padding: 24px;
+  }
+  .chat-empty .empty-icon { font-size: 40px; margin-bottom: 10px; }
+  .chat-empty h4 { font-size: 14px; font-weight: 700; color: #1f2328; margin-bottom: 6px; }
+  .chat-empty p  { font-size: 12px; line-height: 1.7; }
+
+  /* Clipboard toast */
+  #clipToast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 99999;
+    background: #1c2b4a; color: #fff; border-radius: 8px;
+    padding: 9px 16px; font-size: 12px; font-weight: 600;
+    opacity: 0; transition: opacity .3s; pointer-events: none;
+  }
+  #clipToast.show { opacity: 1; }
+
+  /* ── ICA FLOATING CHAT PANEL ── */
+  #icaChatPanel {
+    position: fixed; top: 0; right: -440px; width: 400px; height: 100vh;
+    background: #f7f8fa; border-left: 1px solid #e5e7eb;
+    display: flex; flex-direction: column; z-index: 9000;
+    transition: right .3s ease; box-shadow: -4px 0 18px rgba(0,0,0,.10);
+  }
+  #icaChatPanel.open { right: 0; }
+
+  /* Resize handle */
+  #icaResizeHandle {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
+    cursor: ew-resize; background: transparent;
+  }
+  #icaResizeHandle:hover { background: #93c5fd; }
+
+  /* Panel header */
+  .panel-hdr {
+    background: #1c2b4a; color: #fff;
+    padding: 10px 14px; display: flex; align-items: center; gap: 8px;
+    flex-shrink: 0;
+  }
+  .panel-hdr .ph-title { font-size: 13px; font-weight: 700; flex: 1; }
+  .panel-hdr .ph-sub   { font-size: 10px; color: #94a3b8; }
+  .btn-panel-close {
+    background: transparent; border: none; color: #94a3b8;
+    font-size: 18px; cursor: pointer; line-height: 1; padding: 2px 4px;
+  }
+  .btn-panel-close:hover { color: #fff; }
+  .btn-clear-chat {
+    background: transparent; border: 1px solid #e5e7eb; border-radius: 4px;
+    font-size: 10px; padding: 2px 7px; cursor: pointer; color: #57606a;
+  }
+  .btn-clear-chat:hover { background: #e5e7eb; }
+
+  /* Panel input bar */
+  .panel-input-bar {
+    padding: 10px 12px; background: #fff; border-top: 1px solid #e5e7eb;
+    display: flex; gap: 6px; align-items: flex-end; flex-shrink: 0;
+  }
+  .panel-input-bar textarea {
+    flex: 1; resize: none; border: 1px solid #d1d5db; border-radius: 8px;
+    padding: 7px 10px; font-size: 13px; font-family: inherit;
+    line-height: 1.5; min-height: 38px; max-height: 120px;
+    background: #f7f8fa; color: #1f2328; overflow-y: auto;
+  }
+  .panel-input-bar textarea:focus { outline: none; border-color: #3b82d4; background: #fff; }
+  .btn-ica-send {
+    background: #3b82d4; color: #fff; border: none; border-radius: 8px;
+    padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
+    white-space: nowrap; align-self: flex-end; height: 38px;
+  }
+  .btn-ica-send:hover { background: #2563eb; }
+  .btn-ica-send:disabled { background: #93c5fd; cursor: not-allowed; }
+
+  /* Toggle button (FAB) */
+  #btnIcaToggle {
+    position: fixed; bottom: 72px; right: 24px; z-index: 8999;
+    background: #1c2b4a; color: #fff; border: none; border-radius: 28px;
+    padding: 10px 18px; font-size: 13px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0,0,0,.25); display: flex; align-items: center; gap: 7px;
+    transition: background .2s;
+  }
+  #btnIcaToggle:hover { background: #3b82d4; }
+  #btnIcaToggle.hidden { display: none; }
+
+  /* ICA connected indicator */
+  .ica-connected-bar {
+    background: #f0fdf4; border-bottom: 1px solid #86efac;
+    padding: 4px 14px; font-size: 11px; color: #166534;
+    display: none; align-items: center; gap: 6px; flex-shrink: 0;
+  }
+  .ica-connected-bar.show { display: flex; }
+  .ica-connected-bar .dot { width: 7px; height: 7px; background: #16a34a; border-radius: 50%; }
+  .btn-disconnect {
+    margin-left: auto; font-size: 10px; color: #b91c1c; cursor: pointer;
+    background: none; border: none; font-weight: 700; padding: 0;
+  }
+  .btn-disconnect:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -196,8 +484,16 @@
   <span class="logo">Security Champion</span>
   <span class="subtitle">Vulnerability Remediation Dashboard</span>
   <div class="spacer"></div>
+  <a href="https://remea.ica.ibm.com/ica/curatorai/apps/ui/new-chat/6a5662f063eafa2b20da8d20"
+     target="_blank" rel="noopener noreferrer" class="nav-ica-btn"
+     title="Open ICA AI Vulnerability Remediation Agent">
+    💬 Open ICA Agent
+  </a>
   <span class="nav-badge">IBM Bob + ICA</span>
 </div>
+
+<!-- Clipboard toast -->
+<div id="clipToast"></div>
 
 <div class="main">
 
@@ -236,19 +532,25 @@
     <!-- KPI CARDS -->
     <div class="kpi-grid" id="kpiGrid"></div>
 
+    <!-- PRIORITY BANNER -->
+    <div class="priority-banner" id="priorityBanner" style="display:none;">
+      <h3>What to Fix First — Top Priority Actions</h3>
+      <div class="priority-list" id="priorityList"></div>
+    </div>
+
     <!-- CHARTS -->
     <div class="chart-row" id="chartRow"></div>
 
     <!-- TABS -->
     <div class="tabs">
-      <div class="tab active" onclick="switchTab('findings')">📋 Findings</div>
-      <div class="tab" onclick="switchTab('remediation')">🔧 Remediation Guidance</div>
-      <div class="tab" onclick="switchTab('effort')">📅 Effort &amp; Action Plan</div>
-      <div class="tab" onclick="switchTab('automation')">🤖 IBM Bob + ICA Automation</div>
+      <div class="tab" id="tab-btn-findings" onclick="switchTab('findings')">📋 Findings</div>
+      <div class="tab active" id="tab-btn-remediation" onclick="switchTab('remediation')">🔧 Fix It — Remediation</div>
+      <div class="tab" id="tab-btn-effort" onclick="switchTab('effort')">📅 Sprint Plan</div>
+      <div class="tab" id="tab-btn-automation" onclick="switchTab('automation')">🤖 IBM Bob + ICA</div>
     </div>
 
     <!-- TAB: FINDINGS -->
-    <div class="tab-pane active" id="tab-findings">
+    <div class="tab-pane" id="tab-findings">
       <div class="section-hdr">Finding Inventory</div>
       <div class="filter-bar">
         <label>Severity:</label>
@@ -292,8 +594,9 @@
     </div>
 
     <!-- TAB: REMEDIATION -->
-    <div class="tab-pane" id="tab-remediation">
-      <div class="section-hdr">Remediation Guidance by CWE</div>
+    <div class="tab-pane active" id="tab-remediation">
+      <div class="section-hdr">Remediation Guidance by CWE — How to Fix Each Vulnerability</div>
+      <p style="font-size:13px;color:#57606a;margin-bottom:14px;">Each card below shows exactly what the vulnerability is, why it is dangerous, and the exact code fix to apply. Start from the top — issues are sorted by most findings first.</p>
       <div class="rem-grid" id="remGrid"></div>
     </div>
 
@@ -336,7 +639,97 @@
 
     <!-- TAB: AUTOMATION -->
     <div class="tab-pane" id="tab-automation">
-      <div class="section-hdr">IBM Bob + IBM ICA End-to-End Automation</div>
+
+      <!-- ICA placeholder — replaced dynamically when responses are pinned -->
+      <div class="ica-tab-placeholder" id="icaTabPlaceholder">
+        <strong>📌 No analyses pinned yet</strong><br>
+        Use the <strong>Ask ICA Agent</strong> panel (top-right), send a vulnerability question,<br>
+        then click <strong>📌 Pin to Dashboard</strong> on any response to display the full<br>
+        structured analysis here — including Description, Root Cause, Remediation,<br>
+        Code Fix, and Secure Coding Best Practices.
+      </div>
+
+      <!-- ── ICA Data Consumption & Capabilities Reference ─────────────── -->
+      <div class="auto-section" style="margin-bottom:18px;">
+        <div class="section-hdr">ICA Agent — Data Consumption &amp; Dashboard Display Capabilities</div>
+        <p style="font-size:13px;color:#374151;margin-bottom:12px;">
+          Everything the ICA "AI Vulnerability Remediation" agent returns can be captured and
+          displayed here. The table below documents exactly what information flows from the agent
+          into this dashboard.
+        </p>
+        <table class="vuln-table" style="margin-bottom:0;">
+          <thead>
+            <tr>
+              <th style="width:22%;">Data Category</th>
+              <th style="width:36%;">What the ICA Agent Returns</th>
+              <th style="width:22%;">How It Is Displayed</th>
+              <th style="width:20%;">Limit / Constraint</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>🔍 Vulnerability Description</strong></td>
+              <td>Concise plain-language explanation of the vulnerability (CWE, type, impact)</td>
+              <td>Formatted text section in pinned card</td>
+              <td>Full text — no truncation</td>
+            </tr>
+            <tr>
+              <td><strong>🧬 Root Cause Analysis</strong></td>
+              <td>Technical explanation of why the code is vulnerable (e.g. hard-coded string in source)</td>
+              <td>Formatted text section in pinned card</td>
+              <td>Full text — no truncation</td>
+            </tr>
+            <tr>
+              <td><strong>🔧 Remediation Steps</strong></td>
+              <td>Numbered action steps to fix the vulnerability</td>
+              <td>Bulleted list in pinned card</td>
+              <td>Full list — no truncation</td>
+            </tr>
+            <tr>
+              <td><strong>💻 Sample Code Fix</strong></td>
+              <td>Before/after code snippet in the relevant language (Java, Python, etc.)</td>
+              <td>Syntax-highlighted code block (dark theme)</td>
+              <td>Full code — no truncation</td>
+            </tr>
+            <tr>
+              <td><strong>🛡️ Secure Coding Best Practices</strong></td>
+              <td>5–7 preventative recommendations relevant to the CWE category</td>
+              <td>Formatted list in pinned card</td>
+              <td>Full list — no truncation</td>
+            </tr>
+            <tr>
+              <td><strong>📎 Uploaded File Context</strong></td>
+              <td>Excel/CSV rows injected as context. Up to 12 000 characters of file content per request</td>
+              <td>Referenced in prompt; response reflects the data</td>
+              <td>12 000 chars (~150–200 rows of data)</td>
+            </tr>
+            <tr>
+              <td><strong>💬 Conversation History</strong></td>
+              <td>Multi-turn chat — agent remembers context within a session (session_id)</td>
+              <td>Chat panel retains last 40 messages (20 turns)</td>
+              <td>Last 40 messages kept in memory</td>
+            </tr>
+            <tr>
+              <td><strong>📌 Pinned Cards</strong></td>
+              <td>Any agent response can be pinned to this tab as a structured card</td>
+              <td>Up to N cards pinned simultaneously; each removable</td>
+              <td>No hard limit — browser memory only</td>
+            </tr>
+            <tr>
+              <td><strong>🏷️ ICA Session ID</strong></td>
+              <td>Returned by ICA API to maintain conversation continuity</td>
+              <td>Stored in JS memory; sent with every follow-up request</td>
+              <td>Per-browser-session (lost on refresh)</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="font-size:11px;color:#57606a;margin-top:8px;">
+          * The 12 000-character file injection limit can be increased by editing
+          <code>uploadedFileText.slice(0, 12000)</code> in the dashboard JS. Claude 4.5 Sonnet
+          supports ~180 000 tokens of context — well beyond any single vulnerability report.
+        </p>
+      </div>
+
       <div class="auto-section">
         <h3>How This Dashboard Works — Zero Manual Data Entry</h3>
         <div class="pipeline">
@@ -393,6 +786,776 @@
 
 </div><!-- /main -->
 
+<!-- ══════════════════════════════════════════
+     ICA FLOATING CHAT PANEL
+     Fixed right-side slide-in panel
+     ══════════════════════════════════════════ -->
+<div id="icaChatPanel">
+  <!-- Drag resize handle -->
+  <div id="icaResizeHandle"></div>
+
+  <!-- Header -->
+  <div class="panel-hdr">
+    <div>
+      <div class="ph-title">🤖 Security Champion AI</div>
+      <div class="ph-sub">Powered by IBM ICA Agent</div>
+    </div>
+    <button class="btn-clear-chat" onclick="clearChat()" title="Clear conversation">Clear</button>
+    <button class="btn-panel-close" onclick="closeIcaPanel()" title="Close panel">✕</button>
+  </div>
+
+  <!-- Connected indicator -->
+  <div class="ica-connected-bar" id="icaConnectedBar">
+    <div class="dot"></div>
+    <span id="icaConnectedLabel">ICA Agent connected</span>
+    <button class="btn-disconnect" onclick="disconnectIca()">Disconnect</button>
+  </div>
+
+  <!-- Setup banner — shown when no ICA agent is configured -->
+  <div id="icaSetupBanner">
+    <div class="setup-icon">⚙️</div>
+    <div>
+      <h4>Connect Your ICA Agent (Optional)</h4>
+      <p>Enter your ICA Agent URL and API key to get live AI answers from your own IBM ICA agent.
+         Without this, the built-in offline AI still provides full vulnerability guidance.</p>
+      <div class="ica-config-form">
+        <div>
+          <label for="icaAgentUrl">ICA Agent URL</label>
+          <input type="url" id="icaAgentUrl" placeholder="https://your-ica-agent.ibm.com/v1/…"
+                 oninput="validateIcaForm()" autocomplete="off">
+        </div>
+        <div>
+          <label for="icaApiKey">API Key</label>
+          <input type="password" id="icaApiKey" placeholder="Your ICA API key"
+                 oninput="validateIcaForm()" autocomplete="off">
+        </div>
+        <div>
+          <label for="icaProjectId">Agent ID (optional)</label>
+          <input type="text" id="icaProjectId" placeholder="Agent ID (if required)"
+                 oninput="validateIcaForm()">
+        </div>
+        <button class="btn-ica-connect" id="btnIcaConnect" onclick="connectIca()" disabled>
+          Connect
+        </button>
+      </div>
+      <p style="margin-top:8px;font-size:11px;color:#92400e;">
+        Leave blank to use the built-in offline AI — no keys required.
+        <button style="background:none;border:none;color:#92400e;font-size:11px;cursor:pointer;text-decoration:underline;padding:0;" onclick="dismissSetupBanner()">Dismiss</button>
+      </p>
+    </div>
+  </div>
+
+  <!-- Quick prompt chips -->
+  <div class="panel-chips-bar">
+    <div class="chips-label">Quick prompts</div>
+    <div class="chips-scroll">
+      <span class="prompt-chip" onclick="sendChip('Summarise all critical and high severity findings')">📊 Summarise findings</span>
+      <span class="prompt-chip" onclick="sendChip('What should I fix first?')">🎯 Fix priority</span>
+      <span class="prompt-chip" onclick="sendChip('Explain CWE-798 and how to fix it')">🔑 CWE-798 fix</span>
+      <span class="prompt-chip" onclick="sendChip('Explain CWE-89 SQL injection fix')">💉 SQL Injection</span>
+      <span class="prompt-chip" onclick="sendChip('Give me a sprint plan for all findings')">📅 Sprint plan</span>
+      <span class="prompt-chip" onclick="sendChip('Explain this report to a non-technical manager')">👔 Manager summary</span>
+    </div>
+  </div>
+
+  <!-- Chat message history -->
+  <div id="icaChatHistory">
+    <div class="chat-empty" id="chatEmptyState">
+      <div class="empty-icon">🤖</div>
+      <h4>Security Champion AI Assistant</h4>
+      <p>Type any vulnerability question below or click a quick prompt above.<br>
+      Powered by the same AI as your ICA agent.</p>
+    </div>
+  </div>
+
+  <!-- Input bar -->
+  <div class="panel-input-bar">
+    <textarea id="icaPromptInput" rows="1" placeholder="Ask about any vulnerability, CWE, or fix…"
+              oninput="autoResizeTextarea(this)" onkeydown="handlePromptKey(event)"></textarea>
+    <button class="btn-ica-send" id="btnIcaSend" onclick="sendIcaPrompt()">Send ▶</button>
+  </div>
+</div>
+
+<!-- FAB toggle button -->
+<button id="btnIcaToggle" onclick="openIcaPanel()">
+  🤖 Ask AI
+</button>
+
+<script>
+// ── State ─────────────────────────────────────────────
+let uploadedFileText  = '';   // parsed text from uploaded file
+let uploadedFileName  = '';
+
+// ── ICA agent configuration ───────────────────────────
+const ICA_AGENT_ID    = '';   // default agent ID (override via UI)
+let icaApiKey         = '';
+let icaAgentId        = ICA_AGENT_ID;
+let icaAgentUrl       = '';   // ICA agent endpoint URL
+let icaSessionId      = null;
+let icaMessages       = [];
+let icaBusy           = false;
+
+// ── Panel open / close ────────────────────────────────
+function openIcaPanel() {
+  document.getElementById('icaChatPanel').classList.add('open');
+  document.getElementById('btnIcaToggle').classList.add('hidden');
+}
+function closeIcaPanel() {
+  document.getElementById('icaChatPanel').classList.remove('open');
+  document.getElementById('btnIcaToggle').classList.remove('hidden');
+}
+
+// ── ICA connected state ───────────────────────────────
+function setIcaConnected(on) {
+  const bar   = document.getElementById('icaConnectedBar');
+  const label = document.getElementById('icaConnectedLabel');
+  if (on) {
+    bar.classList.add('show');
+    label.textContent = icaAgentUrl
+      ? 'ICA Agent: ' + icaAgentUrl.replace(/^https?:\/\//, '').split('/')[0]
+      : 'ICA Agent connected';
+  } else {
+    bar.classList.remove('show');
+  }
+}
+
+// ── Dismiss setup banner ──────────────────────────────
+function dismissSetupBanner() {
+  const sb = document.getElementById('icaSetupBanner');
+  if (sb) sb.style.display = 'none';
+}
+
+// ── Form validation ───────────────────────────────────
+function validateIcaForm() {
+  const urlVal = (document.getElementById('icaAgentUrl')?.value || '').trim();
+  const keyVal = (document.getElementById('icaApiKey')?.value   || '').trim();
+  const btn    = document.getElementById('btnIcaConnect');
+  if (btn) btn.disabled = !(urlVal && keyVal);
+}
+
+// ── Connect to ICA agent ──────────────────────────────
+function connectIca() {
+  const urlVal = (document.getElementById('icaAgentUrl')?.value || '').trim();
+  const keyVal = (document.getElementById('icaApiKey')?.value   || '').trim();
+  const agId   = (document.getElementById('icaProjectId')?.value || '').trim();
+
+  if (!urlVal || !keyVal) { alert('Please enter both an ICA Agent URL and an API key.'); return; }
+
+  icaAgentUrl = urlVal;
+  icaApiKey   = keyVal;
+  icaAgentId  = agId || ICA_AGENT_ID;
+
+  // Persist so the panel remembers after a page refresh
+  localStorage.setItem('icaCreds2', JSON.stringify({ url: icaAgentUrl, key: icaApiKey, agentId: icaAgentId }));
+
+  setIcaConnected(true);
+  dismissSetupBanner();
+  showToast('✅ ICA Agent connected — ' + icaAgentUrl.split('/')[2]);
+}
+
+// ── sendIcaPrompt — reads from textarea ───────────────
+function sendIcaPrompt() {
+  const ta = document.getElementById('icaPromptInput');
+  const prompt = (ta?.value || '').trim();
+  if (!prompt) return;
+  ta.value = ''; ta.style.height = 'auto';
+  sendToIca(prompt, false);
+}
+
+// ── Quick chip helper ─────────────────────────────────
+function sendChip(text) {
+  openIcaPanel();
+  sendToIca(text, false);
+}
+
+// ── Built-in CWE knowledge base (no API key needed) ──
+const CWE_KB = {
+  '476': { name: 'NULL Pointer Dereference', risk: 'HIGH', owasp: 'A06:2021',
+    desc: 'The application dereferences a pointer that it expects to be valid but is NULL, typically causing a crash or exit.',
+    impact: 'Denial of service (application crash), potential information exposure via crash dumps, and in some cases exploitable memory corruption.',
+    fix: `**Fix — always check for null before use:**\n\`\`\`java\n// BAD\nString value = getUser().getName(); // getUser() may return null\n\n// GOOD\nUser user = getUser();\nif (user != null) {\n    String value = user.getName();\n}\n\n// GOOD — Java Optional\nString value = Optional.ofNullable(getUser())\n    .map(User::getName)\n    .orElse("unknown");\n\`\`\`\n\n**Best practices:**\n- Use @NonNull / @Nullable annotations and static analysis (SpotBugs, SonarQube).\n- Prefer Optional<T> over nullable returns in Java 8+.\n- Set up null-safety checks in Kotlin (?.) or use Objects.requireNonNull().\n- Add unit tests for null boundary conditions.` },
+  '563': { name: 'Assignment to Variable Without Use', risk: 'LOW', owasp: 'A04:2021',
+    desc: 'The variable\'s value is assigned but the variable is never used afterwards, which may indicate a logic error or dead code.',
+    impact: 'Code quality issue — may mask logic errors, cause unexpected behaviour, or waste memory. Low direct security risk.',
+    fix: '**Fix:** Remove the unused assignment or correct the logic to use the assigned value. Enable compiler warnings (`-Xlint:all` in Java). Use IDE inspections or SonarQube to catch these automatically.' },
+  '570': { name: 'Expression is Always False', risk: 'LOW', owasp: 'A04:2021',
+    desc: 'The software contains an expression that will always evaluate to false.',
+    impact: 'Dead code paths that may hide security controls — e.g. an always-false security check that was intended to restrict access.',
+    fix: '**Fix:** Review the logic condition — it is likely a programming mistake. Use static analysis tools to detect unreachable branches. Pay special attention if the dead code is inside an access-control or authentication check.' },
+  '571': { name: 'Expression is Always True', risk: 'LOW', owasp: 'A04:2021',
+    desc: 'The software contains an expression that will always evaluate to true.',
+    impact: 'May bypass security checks if the always-true condition is guarding privileged operations.',
+    fix: '**Fix:** Review the condition — confirm it expresses the intended logic. If the condition guards a security check, it must be corrected immediately. Enable SAST rules for tautology detection.' },
+  '798': { name: 'Use of Hard-coded Credentials', risk: 'CRITICAL', owasp: 'A07:2021',
+    desc: 'The software contains hard-coded credentials such as a password or cryptographic key.',
+    impact: 'An attacker who accesses the source code or binary can extract credentials and gain full access to affected systems.',
+    fix: `**Immediate actions:**\n- Remove all hard-coded credentials from source code immediately.\n- Rotate any exposed secrets — assume they are compromised.\n\n**Secure alternatives:**\n\`\`\`java\n// BAD\nString password = "mysecret123";\n\n// GOOD — environment variable\nString password = System.getenv("DB_PASSWORD");\n\n// GOOD — secrets manager\nString password = SecretsManagerClient.getSecret("prod/db/password");\n\`\`\`\n\n**Best practices:**\n- Store secrets in Vault, AWS Secrets Manager, or Azure Key Vault.\n- Add pre-commit hooks (git-secrets, trufflehog) to block accidental commits.\n- Scan every CI/CD push with SAST.` },
+  '89': { name: 'SQL Injection', risk: 'CRITICAL', owasp: 'A03:2021',
+    desc: 'The software constructs SQL commands using externally-influenced input without neutralising special elements.',
+    impact: 'Complete database compromise — data exfiltration, authentication bypass, data deletion, and in some configurations RCE.',
+    fix: `**Fix — parameterised queries:**\n\`\`\`java\n// BAD\nString q = "SELECT * FROM users WHERE name='" + input + "'";\n\n// GOOD\nPreparedStatement ps = conn.prepareStatement(\n    "SELECT * FROM users WHERE name = ?");\nps.setString(1, input);\n\`\`\`\n\n**Additional layers:**\n- Use an ORM (Hibernate, JPA) which parameterises by default.\n- Principle of least privilege on the DB account.\n- Enable WAF rules for SQLi patterns.` },
+  '79': { name: 'Cross-site Scripting (XSS)', risk: 'HIGH', owasp: 'A03:2021',
+    desc: 'The software does not neutralise user-controllable input before placing it in a web page served to other users.',
+    impact: 'Session hijacking, credential theft, malware distribution, defacement.',
+    fix: `**Fix — output encoding:**\n\`\`\`javascript\n// BAD\ndiv.innerHTML = userInput;\n\n// GOOD\ndiv.textContent = userInput;\n\`\`\`\n\n**Additional layers:**\n- Implement Content-Security-Policy (CSP) header.\n- Sanitise HTML server-side with DOMPurify.\n- Use frameworks (React, Angular) that encode by default.` },
+  '22': { name: 'Path Traversal', risk: 'HIGH', owasp: 'A01:2021',
+    desc: 'The software uses external input to construct a file path without neutralising "../" sequences.',
+    impact: 'Unauthorised read or write of arbitrary files including config files, source code, and credentials.',
+    fix: `**Fix — canonicalise paths:**\n\`\`\`java\n// GOOD\nFile f = new File(baseDir, userInput).getCanonicalFile();\nif (!f.getPath().startsWith(new File(baseDir).getCanonicalPath())) {\n    throw new SecurityException("Path traversal detected");\n}\n\`\`\`\n\n**Additional layers:**\n- Use an allowlist of permitted filenames.\n- Run with minimal filesystem permissions.` },
+  '611': { name: 'XXE — XML External Entity Injection', risk: 'HIGH', owasp: 'A05:2021',
+    desc: 'The software processes XML that can contain external entity URIs, causing unintended document embedding.',
+    impact: 'SSRF, local file disclosure, denial of service (Billion Laughs).',
+    fix: `**Fix — disable external entities:**\n\`\`\`java\nSAXParserFactory spf = SAXParserFactory.newInstance();\nspf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);\nspf.setFeature("http://xml.org/sax/features/external-general-entities", false);\n\`\`\`` },
+  '862': { name: 'Missing Authorisation', risk: 'HIGH', owasp: 'A01:2021',
+    desc: 'The software does not perform an authorisation check when an actor attempts to access a resource.',
+    impact: 'Privilege escalation, access to other users\' data, administrative function exposure.',
+    fix: '**Fix:** Apply authorisation checks on every sensitive endpoint. Use Spring Security, OPA, or similar policy enforcement. Never rely on UI-only controls.' },
+  '200': { name: 'Exposure of Sensitive Information', risk: 'MEDIUM', owasp: 'A02:2021',
+    desc: 'The product exposes sensitive information to actors not authorised to access it.',
+    impact: 'Disclosure of PII, credentials, internal paths, stack traces.',
+    fix: '**Fix:** Suppress verbose error messages in production. Return generic error responses. Log details server-side only. Audit all API responses for unintended leakage.' },
+  '502': { name: 'Deserialization of Untrusted Data', risk: 'CRITICAL', owasp: 'A08:2021',
+    desc: 'The application deserialises data from an untrusted source without sufficient verification.',
+    impact: 'Remote code execution, denial of service, authentication bypass.',
+    fix: '**Fix:** Never deserialise untrusted data. If unavoidable, use a serialisation allowlist and HMAC integrity checking.' },
+  '190': { name: 'Integer Overflow or Wraparound', risk: 'HIGH', owasp: 'A06:2021',
+    desc: 'The software performs a calculation that can produce an integer overflow or wraparound.',
+    impact: 'Buffer overflows, incorrect logic execution, potential remote code execution.',
+    fix: `**Fix:**\n\`\`\`java\n// Use Math.addExact() which throws ArithmeticException on overflow\nint result = Math.addExact(a, b);\n// Or use long/BigInteger for large values\nlong result = (long) a + b;\n\`\`\`` },
+  '400': { name: 'Uncontrolled Resource Consumption', risk: 'HIGH', owasp: 'A05:2021',
+    desc: 'The software does not properly restrict the amount of resources that can be consumed by an actor.',
+    impact: 'Denial of service — attackers can exhaust CPU, memory, disk, or threads.',
+    fix: '**Fix:** Impose rate limits, request size limits, and timeouts on all external inputs. Use circuit breakers (Resilience4j, Hystrix). Reject oversized inputs early.' },
+  '404': { name: 'Improper Resource Shutdown or Release', risk: 'MEDIUM', owasp: 'A06:2021',
+    desc: 'The software does not properly release a resource when finished.',
+    impact: 'Resource exhaustion (file handles, DB connections, sockets), leading to denial of service.',
+    fix: `**Fix — use try-with-resources:**\n\`\`\`java\n// GOOD\ntry (Connection conn = dataSource.getConnection();\n     PreparedStatement ps = conn.prepareStatement(sql)) {\n    // use resources\n} // auto-closed\n\`\`\`` },
+  '732': { name: 'Incorrect Permission Assignment for Critical Resource', risk: 'HIGH', owasp: 'A01:2021',
+    desc: 'The software specifies permissions for a security-critical resource in a way that allows unintended actors to read or modify it.',
+    impact: 'Unauthorised access to sensitive files, configs, or credentials.',
+    fix: '**Fix:** Apply principle of least privilege. Set file permissions to owner-only (chmod 600) for sensitive files. Audit all resource permissions in deployment pipelines.' },
+  '326': { name: 'Inadequate Encryption Strength', risk: 'HIGH', owasp: 'A02:2021',
+    desc: 'The software stores or transmits sensitive data using an encryption scheme that is theoretically sound but is not strong enough.',
+    impact: 'Data can be decrypted by attackers with sufficient resources.',
+    fix: `**Fix:**\n\`\`\`java\n// BAD — weak\nCipher c = Cipher.getInstance("DES");\n\n// GOOD — strong\nCipher c = Cipher.getInstance("AES/GCM/NoPadding");\n\`\`\`\nUse AES-256, RSA-2048+, and TLS 1.2+ minimum.` },
+  '327': { name: 'Use of a Broken or Risky Cryptographic Algorithm', risk: 'HIGH', owasp: 'A02:2021',
+    desc: 'The software uses a broken or risky cryptographic algorithm such as MD5, SHA-1, or DES.',
+    impact: 'Cryptographic protection can be bypassed by attackers with moderate resources.',
+    fix: '**Fix:** Replace MD5/SHA-1 with SHA-256 or SHA-3. Replace DES/3DES with AES-256-GCM. Replace RSA-1024 with RSA-2048+. Use Argon2/bcrypt for password hashing.' },
+  '601': { name: 'URL Redirection to Untrusted Site (Open Redirect)', risk: 'MEDIUM', owasp: 'A01:2021',
+    desc: 'The web application accepts a user-controlled input that specifies a link and does not validate this link before redirecting users.',
+    impact: 'Phishing attacks, credential theft via redirect to malicious sites.',
+    fix: '**Fix:** Only allow redirects to a whitelist of trusted domains. Never redirect to user-supplied URLs directly. Validate against a strict allowlist server-side.' },
+  '918': { name: 'Server-Side Request Forgery (SSRF)', risk: 'CRITICAL', owasp: 'A10:2021',
+    desc: 'The server fetches a remote resource using a URL supplied by the user without adequate validation.',
+    impact: 'Access to internal services, cloud metadata endpoints (AWS 169.254.169.254), and internal network scanning.',
+    fix: '**Fix:** Validate and whitelist allowed URL schemes and hosts. Block requests to private IP ranges (10.x, 172.16.x, 192.168.x, 169.254.x). Use a DNS allowlist.' },
+};
+
+// ── For CWEs not in the KB, generate a helpful generic response ──
+function genericCweAnswer(id, isFixReq) {
+  const mitrUrl = `https://cwe.mitre.org/data/definitions/${id}.html`;
+  if (isFixReq) {
+    return `**Secure Code Fix — CWE-${id}**\n\nCWE-${id} is not in my offline knowledge base, but here are universal secure-coding principles that apply:\n\n**1. Input Validation**\n- Never trust external input. Validate type, length, format, and range.\n- Use allowlists not denylists.\n\n**2. Output Encoding**\n- Encode all output appropriate to its context (HTML, SQL, shell, etc.).\n\n**3. Least Privilege**\n- Run with minimum required permissions. Limit blast radius of any exploit.\n\n**4. Fail Securely**\n- On error, default to deny. Never expose internal details in error messages.\n\n**5. Use Vetted Libraries**\n- Prefer well-maintained frameworks over custom implementations for security controls.\n\n📖 Full details: ${mitrUrl}`;
+  }
+  return `**CWE-${id}**\n\nThis CWE is not in my offline knowledge base.\n\n**What to do:**\n- Review the full description at: ${mitrUrl}\n- Run your SAST tool's built-in remediation guidance for this finding.\n- Apply the universal principles: input validation, output encoding, least privilege, and fail-secure defaults.\n\nIf this CWE appears frequently in your report, ask me:\n- *"What are secure coding best practices for CWE-${id}?"*\n- *"How do I fix input validation issues?"*`;
+}
+
+// ── Built-in AI engine — answers entirely in-browser ──
+// ── Helper: every response wraps with the agent's standard prefix + suffix ──
+const ICA_DASHBOARD_URL = 'https://sowndharya123-dev.github.io/watsonsec/';
+function icaWrap(body) {
+  return `For full automated fix guidance, upload your file here: ${ICA_DASHBOARD_URL}\n\n${body}\n\nUpload your scan file to the dashboard for complete code-level fix guidance.`;
+}
+
+function builtInAnswer(prompt, fileText, fileName) {
+  const p = prompt.toLowerCase();
+
+  // ── Welcome — matches ICA agent's welcome message exactly ──
+  if (prompt === '__welcome__') {
+    return `Welcome! I am your Security Champion Assistant.\n\nTo get automatic, personalised vulnerability remediation guidance:\n👉 ${ICA_DASHBOARD_URL}\n\n1. Open the link above\n2. Upload your .xlsx or .csv file from Polaris / Checkmarx / Veracode\n3. Get instant fix guidance, code examples and sprint plan — automatically!\n\nOr ask me any security question and I will guide you.`;
+  }
+
+  // ── Report analysis ──
+  const hasFindings = (typeof allFindings !== 'undefined' && allFindings.length > 0) || fileText;
+  if (hasFindings && (p.includes('analys') || p.includes('summar') || p.includes('all vulnerab') || p.includes('report') || p.includes('critical') || p.includes('high sever'))) {
+    const counts = { CRITICAL:0, HIGH:0, MEDIUM:0, LOW:0, INFO:0 };
+    const cwesSeen = {};
+    const projectsSeen = {};
+
+    if (typeof allFindings !== 'undefined' && allFindings.length > 0) {
+      allFindings.forEach(f => {
+        const sev = (f.severity || '').toUpperCase();
+        if (counts[sev] !== undefined) counts[sev]++; else counts.INFO++;
+        const cwe = (f.cwe_id || '').replace(/[^0-9]/g, '');
+        if (cwe) cwesSeen[cwe] = (cwesSeen[cwe] || 0) + 1;
+        const proj = f.project || f.application || '';
+        if (proj) projectsSeen[proj] = (projectsSeen[proj] || 0) + 1;
+      });
+      fileName = fileName || 'your report';
+    } else {
+      fileText.split('\n').filter(l => l.trim()).forEach(l => {
+        const lu = l.toUpperCase();
+        if (lu.includes('CRITICAL'))     counts.CRITICAL++;
+        else if (lu.includes('HIGH'))    counts.HIGH++;
+        else if (lu.includes('MEDIUM'))  counts.MEDIUM++;
+        else if (lu.includes('LOW'))     counts.LOW++;
+        const m = l.match(/CWE[-‑]?(\d+)/i);
+        if (m) cwesSeen[m[1]] = (cwesSeen[m[1]] || 0) + 1;
+      });
+    }
+
+    const total    = Object.values(counts).reduce((a, b) => a + b, 0);
+    const topCwes  = Object.entries(cwesSeen).sort((a, b) => b[1] - a[1]).slice(0, 5)
+      .map(([id, n]) => `CWE-${id} (${CWE_KB[id] ? CWE_KB[id].name : 'unknown'}) — ${n} finding${n > 1 ? 's' : ''}`).join('\n- ');
+    const topProjs = Object.entries(projectsSeen).sort((a, b) => b[1] - a[1]).slice(0, 3)
+      .map(([p, n]) => `${p} (${n})`).join(', ');
+
+    const urgentCwes = Object.keys(cwesSeen)
+      .filter(id => CWE_KB[id] && (CWE_KB[id].risk === 'CRITICAL' || CWE_KB[id].risk === 'HIGH')).slice(0, 3);
+
+    let body = `Your report **"${fileName}"** has **${total} findings**: 🔴 ${counts.CRITICAL} Critical · 🟠 ${counts.HIGH} High · 🟡 ${counts.MEDIUM} Medium · 🟢 ${counts.LOW} Low.\n\n`;
+    if (topProjs) body += `Most affected projects: ${topProjs}.\n\n`;
+    if (topCwes)  body += `Top vulnerabilities:\n- ${topCwes}\n\n`;
+    if (urgentCwes.length) {
+      body += `Fix these first: ${urgentCwes.map(id => `CWE-${id} (${CWE_KB[id].name})`).join(', ')}. Ask me "fix CWE-${urgentCwes[0]}" for the code fix.`;
+    }
+    return icaWrap(body);
+  }
+
+  // ── Specific row analysis ──
+  if (fileText && p.match(/row\s+(\d+)/)) {
+    const rowNum = parseInt(p.match(/row\s+(\d+)/)[1]);
+    const lines  = fileText.split('\n').filter(l => l.trim());
+    const row    = lines[rowNum - 1] || lines[rowNum];
+    if (row) {
+      const m     = row.match(/CWE[-‑]?(\d+)/i);
+      const cweId = m ? m[1] : null;
+      let body    = `Row ${rowNum}: \`${row.slice(0, 300)}\`\n\n`;
+      if (cweId && CWE_KB[cweId]) {
+        body += `This is **CWE-${cweId} (${CWE_KB[cweId].name})** — Risk: ${CWE_KB[cweId].risk}. ${CWE_KB[cweId].desc.split('.')[0]}.`;
+      } else if (cweId) {
+        body += `Contains CWE-${cweId}. Ask "explain CWE-${cweId}" for details.`;
+      }
+      return icaWrap(body);
+    }
+    return icaWrap(`Row ${rowNum} not found. The file has ${fileText.split('\n').filter(l => l.trim()).length} rows.`);
+  }
+
+  // ── Full structured analysis (description + root cause + remediation + code fix + best practices) ──
+  const isFullAnalysis = p.includes('full analysis') || p.includes('root cause') || p.includes('remediation steps') || p.includes('best practices') || (p.includes('vulnerability description') && p.includes('code fix'));
+  const cweMatch = p.match(/cwe[-‑]?(\d+)/i) || prompt.match(/cwe[-‑]?(\d+)/i);
+  if (isFullAnalysis && cweMatch) {
+    const id  = cweMatch[1];
+    const kb  = CWE_KB[id];
+    const sevMatch = p.match(/\b(critical|high|medium|low)\b/i);
+    const sev = sevMatch ? sevMatch[1].charAt(0).toUpperCase() + sevMatch[1].slice(1).toLowerCase() : (kb ? kb.risk : 'Unknown');
+    const toolMatch = p.match(/\b(sast|dast|sca|iast)\b/i);
+    const tool = toolMatch ? toolMatch[1].toUpperCase() : 'SAST';
+    if (kb) {
+      const RC_MAP = {
+        '798': 'Developers embed credentials (passwords, API keys, tokens) directly in source code or config files as string literals instead of externalising them to a secrets manager or environment variables.',
+        '476': 'A pointer or object reference is used after it may have been set to null, typically when a method return value is not checked before use — often caused by missing null-guard conditions.',
+        '89':  'User-supplied input is concatenated directly into an SQL string without parameterisation, allowing an attacker to inject arbitrary SQL clauses.',
+        '79':  'User-supplied input is reflected into an HTML response without encoding, allowing an attacker to inject and execute arbitrary scripts in a victim\'s browser.',
+        '22':  'File paths are constructed from user-supplied input without canonicalisation or boundary checks, allowing "../" traversal outside the intended base directory.',
+        '611': 'The XML parser is configured to resolve external entity references, allowing a crafted DTD to read local files or make server-side requests.',
+        '862': 'Authorisation checks are absent or incomplete on server-side endpoints, relying solely on client-side UI controls that attackers can bypass.',
+        '200': 'Verbose error messages, stack traces, or API responses expose internal implementation details, file paths, or PII to unauthorised parties.',
+        '502': 'Deserialisation is performed on untrusted data without type validation or integrity checking, enabling arbitrary object instantiation.',
+        '190': 'Arithmetic operations on integer types are not bounds-checked, causing silent wraparound that produces unexpected negative or zero values.'
+      };
+      const BP_MAP = {
+        '798': '- Store all secrets in a vault (HashiCorp Vault, AWS Secrets Manager, Azure Key Vault).\n- Add pre-commit hooks (git-secrets, trufflehog) to block accidental commits.\n- Rotate every exposed credential immediately — treat any committed secret as compromised.\n- Scan every CI/CD pipeline push with SAST secret-detection rules.\n- Use short-lived, scoped tokens instead of long-lived passwords where possible.',
+        '476': '- Annotate APIs with @NonNull / @Nullable and enforce with static analysis (SpotBugs, NullAway).\n- Prefer Optional<T> over nullable returns in Java 8+.\n- Apply Objects.requireNonNull() at method entry points.\n- Write unit tests that pass null to every public API.\n- Enable compiler null-safety checks (Kotlin ?., TypeScript strict null checks).',
+        '89':  '- Always use parameterised queries or prepared statements — never string concatenation.\n- Use an ORM (Hibernate, JPA, SQLAlchemy) which parameterises by default.\n- Apply principle of least privilege on the database account.\n- Validate and whitelist all user inputs at the service boundary.\n- Enable WAF rules for SQLi detection as a defence-in-depth layer.',
+        '79':  '- Encode all output for its context (HTML encode, JS encode, CSS encode, URL encode).\n- Implement a strict Content-Security-Policy (CSP) header.\n- Use frameworks (React, Angular) that escape by default — never bypass with dangerouslySetInnerHTML.\n- Sanitise rich-text input server-side with DOMPurify allowlists.\n- Set HttpOnly and Secure flags on session cookies.',
+        '22':  '- Canonicalise paths with getCanonicalPath() and verify they start with the allowed base directory.\n- Use an allowlist of permitted filenames instead of accepting arbitrary input.\n- Run the application with minimal filesystem permissions.\n- Reject inputs containing "../", "..", or encoded variants (%2e%2e).\n- Log and alert on path traversal attempts for incident detection.'
+      };
+      const rootCause = RC_MAP[id] || `The software fails to properly validate or sanitise input before using it in a security-sensitive context, which is the root cause of CWE-${id}.`;
+      const bestPractices = BP_MAP[id] || `- Validate all inputs at trust boundaries.\n- Apply output encoding appropriate to the context.\n- Follow the principle of least privilege.\n- Use vetted libraries and frameworks over custom implementations.\n- Include SAST/DAST scans in every CI/CD pipeline.\n- Conduct regular code reviews focused on security-sensitive operations.`;
+      return icaWrap(
+        `## CWE-${id} — ${kb.name}\n**Severity:** ${sev} · **Detection:** ${tool} · **OWASP:** ${kb.owasp}\n\n` +
+        `---\n\n**1. Vulnerability Description**\n${kb.desc}\n\n` +
+        `**2. Root Cause Analysis**\n${rootCause}\n\n` +
+        `**3. Business Impact**\n${kb.impact}\n\n` +
+        `**4. Remediation Steps**\n${kb.fix}\n\n` +
+        `**5. Secure Coding Best Practices**\n${bestPractices}\n\n` +
+        `📖 Full MITRE reference: https://cwe.mitre.org/data/definitions/${id}.html`
+      );
+    }
+    const mitreUrl = `https://cwe.mitre.org/data/definitions/${id}.html`;
+    return icaWrap(
+      `## CWE-${id} — Structured Analysis\n**Severity:** ${sev} · **Detection:** ${tool}\n\n` +
+      `**1. Vulnerability Description**\nCWE-${id} is a software weakness catalogued by MITRE. Review the full definition at: ${mitreUrl}\n\n` +
+      `**2. Root Cause Analysis**\nInput is not properly validated, sanitised, or encoded before use in a security-sensitive operation.\n\n` +
+      `**3. Remediation Steps**\n- Identify all code locations flagged by the ${tool} scanner.\n- Apply input validation (allowlist preferred over denylist).\n- Use framework-provided safe APIs instead of manual string construction.\n- Verify the fix with a re-scan before closing the ticket.\n\n` +
+      `**4. Sample Code Fix**\n\`\`\`java\n// Apply input validation, output encoding, and safe API equivalents\n// specific to CWE-${id}. See: ${mitreUrl}\n\`\`\`\n\n` +
+      `**5. Secure Coding Best Practices**\n- Validate all inputs at trust boundaries.\n- Encode all outputs appropriate to their context.\n- Follow the principle of least privilege.\n- Embed SAST in CI/CD and review findings every sprint.\n\n` +
+      `📖 Full MITRE reference: ${mitreUrl}`
+    );
+  }
+
+  // ── CWE explain / fix ──
+  if (cweMatch) {
+    const id  = cweMatch[1];
+    const kb  = CWE_KB[id];
+    const isFix = p.includes('fix') || p.includes('remediat') || p.includes('secure') || p.includes('code');
+    if (kb) {
+      if (isFix) {
+        return icaWrap(`**CWE-${id} (${kb.name})** fix — Risk: ${kb.risk}\n\n${kb.fix.split('\n').slice(0, 6).join('\n')}`);
+      }
+      return icaWrap(`**CWE-${id} — ${kb.name}** (${kb.risk} risk, ${kb.owasp})\n\n${kb.desc.split('.').slice(0, 2).join('.')}.\n\n**Impact:** ${kb.impact.split('.')[0]}. Ask me "fix CWE-${id}" for the code-level remediation.`);
+    }
+    return icaWrap(`CWE-${id} is a software weakness tracked by MITRE. ${isFix ? 'Use input validation, parameterised queries, and least-privilege principles as general remediation.' : 'See https://cwe.mitre.org/data/definitions/' + id + '.html for full details.'} Ask me about any specific CWE in the dashboard.`);
+  }
+
+  // ── Security architecture / design questions ──
+  if (p.includes('architect') || p.includes('design') || p.includes('secure by design') || p.includes('threat model')) {
+    return icaWrap(`Secure-by-design means building security in from the start, not bolting it on. Key principles: least privilege, input validation, defence in depth, and fail securely. I can review your specific vulnerability findings and recommend architectural fixes.`);
+  }
+
+  // ── Non-technical / manager explanation ──
+  if (p.includes('non-technical') || p.includes('manager') || p.includes('business') || p.includes('explain risk')) {
+    return icaWrap(`Vulnerabilities are weaknesses in software that attackers can exploit to steal data or disrupt services. Critical and High findings need fixing within days — they are open doors. Medium findings go in your next sprint. Low findings are tracked for normal maintenance.`);
+  }
+
+  // ── Hard-coded credentials ──
+  if ((p.includes('hard') && p.includes('credential')) || p.includes('hardcoded') || p.includes('hard-coded')) {
+    const lang = p.includes('python') ? 'python' : p.includes('node') || p.includes('js') ? 'javascript' : 'java';
+    return icaWrap(`Never store passwords or keys in source code. Use environment variables instead.\n\n\`\`\`${lang}\n${lang === 'python' ? 'import os\npassword = os.environ.get("DB_PASSWORD")' : lang === 'javascript' ? 'const password = process.env.DB_PASSWORD;' : 'String password = System.getenv("DB_PASSWORD");'}\n\`\`\``);
+  }
+
+  // ── Sprint / prioritisation ──
+  if (p.includes('sprint') || p.includes('priorit') || p.includes('fix first') || p.includes('what to fix')) {
+    return icaWrap(`Fix in this order: 1) Critical findings this week, 2) High findings this sprint, 3) Medium findings next sprint, 4) Low findings in backlog. Upload your scan file to get a personalised sprint plan with exact ticket estimates.`);
+  }
+
+  // ── Generic fallback ──
+  return icaWrap(`I am your Security Champion Assistant. I can help you understand security requirements, analyse vulnerabilities, and recommend secure-by-design solutions. Try asking: "Explain CWE-89", "Fix CWE-476 in Java", "Analyse my report", or "What should I fix first?"`);
+}
+
+// ── watsonx.ai — credentials live on the server, nothing needed from the user
+const WX_SYSTEM = `You are the Security Champion AI assistant for IBM employees.
+You help security champions understand, prioritise, and remediate software vulnerabilities found by tools like Polaris (Black Duck SAST/SCA).
+When given dashboard context (severity counts, CWE list, project names), use it to give specific, actionable answers.
+Always provide: 1) brief explanation 2) business impact 3) concrete code fix with example 4) priority recommendation.
+Keep answers focused and practical. Use markdown formatting.`;
+
+// Wipe any stale credentials left over from old versions
+localStorage.removeItem('wxCreds');
+
+// ── Inject live dashboard context into every watsonx prompt ──────────
+function buildDashboardContext() {
+  if (typeof allFindings === 'undefined' || allFindings.length === 0) return '';
+  const counts = { CRITICAL:0, HIGH:0, MEDIUM:0, LOW:0 };
+  const cwesSeen = {};
+  const projectsSeen = {};
+  allFindings.forEach(f => {
+    const s = (f.severity||'').toUpperCase();
+    if (counts[s] !== undefined) counts[s]++;
+    const cwe = (f.cwe_id||'').replace(/[^0-9]/g,'');
+    if (cwe) cwesSeen[cwe] = (cwesSeen[cwe]||0)+1;
+    const proj = f.project||f.application||'';
+    if (proj) projectsSeen[proj] = (projectsSeen[proj]||0)+1;
+  });
+  const topCwes = Object.entries(cwesSeen).sort((a,b)=>b[1]-a[1]).slice(0,12)
+    .map(([id,n])=>`CWE-${id}(${n})`).join(', ');
+  const topProjs = Object.entries(projectsSeen).sort((a,b)=>b[1]-a[1]).slice(0,6)
+    .map(([p,n])=>`${p}(${n})`).join(', ');
+  return `\n\n[DASHBOARD DATA — ${uploadedFileName||'report'}, ${allFindings.length} findings]\nCRITICAL=${counts.CRITICAL} HIGH=${counts.HIGH} MEDIUM=${counts.MEDIUM} LOW=${counts.LOW}\nTop CWEs: ${topCwes}\nTop projects: ${topProjs}`;
+}
+
+// ── Core send — 100% built-in, no server/API needed ─────────────────
+async function sendToIca(userPrompt, isWelcome) {
+  if (icaBusy) return;
+  icaBusy = true;
+
+  const empty = document.getElementById('chatEmptyState');
+  if (empty) empty.remove();
+
+  if (!isWelcome) appendMessage('user', userPrompt + (uploadedFileName ? ' 📎 ' + uploadedFileName : ''));
+
+  const tid = 'typing-' + Date.now();
+  appendTyping(tid);
+  scrollChat();
+
+  const btn = document.getElementById('btnIcaSend');
+  btn.disabled = true; btn.textContent = '…';
+
+  // Small delay so the typing indicator is visible
+  await new Promise(r => setTimeout(r, 420));
+
+  try {
+    const reply = builtInAnswer(userPrompt, uploadedFileText, uploadedFileName);
+    if (!isWelcome) {
+      icaMessages.push({ role: 'user',      content: userPrompt });
+      icaMessages.push({ role: 'assistant', content: reply });
+      if (icaMessages.length > 20) icaMessages = icaMessages.slice(-20);
+    }
+    removeTyping(tid);
+    appendMessage('agent', reply);
+  } finally {
+    icaBusy = false;
+    btn.disabled = false; btn.textContent = 'Send ▶';
+    scrollChat();
+  }
+}
+
+// ── DOM helpers ───────────────────────────────────────
+function appendMessage(role, text) {
+  const history = document.getElementById('icaChatHistory');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+
+  const pinBtn = role === 'agent'
+    ? `<button class="btn-pin-msg" onclick="pinToDashboard(this.closest('.msg'))" title="Pin this analysis to the dashboard tab">📌 Pin to Dashboard</button>`
+    : '';
+
+  div.innerHTML = `
+    <div class="msg-label">${role === 'user' ? 'You' : 'Security Champion AI'}${pinBtn}</div>
+    <div class="msg-bubble">${formatResponse(text)}</div>`;
+  history.appendChild(div);
+  scrollChat();
+}
+
+function appendTyping(id) {
+  const history = document.getElementById('icaChatHistory');
+  const div = document.createElement('div');
+  div.id = id; div.className = 'typing-indicator';
+  div.innerHTML = '<span></span><span></span><span></span>';
+  history.appendChild(div);
+}
+
+function removeTyping(id) { const el = document.getElementById(id); if (el) el.remove(); }
+function scrollChat() { const h = document.getElementById('icaChatHistory'); h.scrollTop = h.scrollHeight; }
+
+// ── Markdown-lite formatter ───────────────────────────
+function formatResponse(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/```[\w]*\n?([\s\S]*?)```/g, '<pre>$1</pre>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>')
+    .replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>[\s\S]*?<\/li>\n?)+/g, m => '<ul style="padding-left:18px;margin:6px 0;">' + m + '</ul>')
+    .replace(/\n/g, '<br>');
+}
+
+// ── Clear conversation ────────────────────────────────
+function clearChat() {
+  icaMessages = [];
+  const history = document.getElementById('icaChatHistory');
+  history.innerHTML = `
+    <div class="chat-empty" id="chatEmptyState">
+      <div class="empty-icon">🤖</div>
+      <h4>Security Champion AI Assistant</h4>
+      <p>Type any vulnerability question below or click a quick prompt above.<br>
+      Powered by the same AI as your ICA agent.</p>
+    </div>`;
+}
+
+// ── Textarea auto-resize ──────────────────────────────
+function autoResizeTextarea(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+// ── Enter to send ─────────────────────────────────────
+function handlePromptKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendIcaPrompt(); }
+}
+
+// ── Toast ─────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('clipToast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── Restore saved credentials on page load ────────────
+(function restoreIcaCreds() {
+  const saved = JSON.parse(localStorage.getItem('icaCreds2') || 'null');
+  if (!saved || !saved.key) return;
+  icaApiKey   = saved.key;
+  icaAgentId  = saved.agentId || ICA_AGENT_ID;
+  icaAgentUrl = saved.url || '';
+
+  // Restore UI fields
+  if (document.getElementById('icaAgentUrl') && icaAgentUrl)
+    document.getElementById('icaAgentUrl').value = icaAgentUrl;
+  document.getElementById('icaApiKey').value = saved.key;
+  if (document.getElementById('icaProjectId'))
+    document.getElementById('icaProjectId').value = icaAgentId;
+
+  setIcaConnected(true);
+  dismissSetupBanner();
+})();
+
+// ── Disconnect ────────────────────────────────────────
+function disconnectIca() {
+  localStorage.removeItem('icaCreds2');
+  icaApiKey = ''; icaAgentId = ICA_AGENT_ID; icaAgentUrl = '';
+  icaMessages = []; icaSessionId = null;
+  setIcaConnected(false); closeIcaPanel(); clearChat();
+  if (document.getElementById('icaAgentUrl'))
+    document.getElementById('icaAgentUrl').value = '';
+  document.getElementById('icaApiKey').value = '';
+  if (document.getElementById('icaProjectId'))
+    document.getElementById('icaProjectId').value = ICA_AGENT_ID;
+  const sb = document.getElementById('icaSetupBanner');
+  if (sb) sb.style.display = 'flex';
+  validateIcaForm();
+}
+
+// ── Pin ICA response to the "IBM Bob + ICA" dashboard tab ─────────────────
+function pinToDashboard(msgEl) {
+  const bubble = msgEl.querySelector('.msg-bubble');
+  if (!bubble) return;
+  const text = bubble.innerText || bubble.textContent || '';
+
+  // Parse sections from the AI text into a structured card
+  const sections = parseIcaSections(text);
+  const card = buildIcaCard(sections, text);
+
+  // Inject into the ICA tab pane
+  const pane = document.getElementById('tab-automation');
+  if (!pane) return;
+
+  // Remove placeholder if present
+  const ph = pane.querySelector('.ica-tab-placeholder');
+  if (ph) ph.remove();
+
+  // Prepend a pinned-analysis card
+  const wrapper = document.getElementById('icaPinnedCards') || (() => {
+    const d = document.createElement('div');
+    d.id = 'icaPinnedCards';
+    d.style.cssText = 'display:flex;flex-direction:column;gap:16px;margin-bottom:24px;';
+    pane.prepend(d);
+    return d;
+  })();
+
+  wrapper.prepend(card);
+
+  // Switch to the tab
+  if (typeof switchTab === 'function') switchTab('automation');
+  showToast('✅ Analysis pinned to IBM Bob + ICA tab');
+}
+
+// ── Parse ICA text into labelled sections ─────────────────────────────────
+function parseIcaSections(text) {
+  // Known section headings (case-insensitive)
+  const HEADINGS = [
+    { key: 'description',    labels: ['vulnerability description', 'description'] },
+    { key: 'root_cause',     labels: ['root cause', 'root cause analysis'] },
+    { key: 'remediation',    labels: ['remediation', 'remediation steps', 'fix steps', 'how to fix'] },
+    { key: 'code_fix',       labels: ['sample code fix', 'code fix', 'secure code', 'example fix', 'code example'] },
+    { key: 'best_practices', labels: ['best practices', 'secure coding', 'prevention', 'recommendations'] },
+  ];
+
+  const sections = {};
+  const lines = text.split('\n');
+  let currentKey = null;
+  let buffer = [];
+
+  for (const line of lines) {
+    const clean = line.replace(/^#+\s*/, '').replace(/^\*+\s*/, '').trim().toLowerCase();
+    let matched = null;
+    for (const h of HEADINGS) {
+      if (h.labels.some(lbl => clean.includes(lbl))) { matched = h.key; break; }
+    }
+    if (matched) {
+      if (currentKey && buffer.length) sections[currentKey] = buffer.join('\n').trim();
+      currentKey = matched;
+      buffer = [];
+    } else if (currentKey) {
+      buffer.push(line);
+    }
+  }
+  if (currentKey && buffer.length) sections[currentKey] = buffer.join('\n').trim();
+
+  // If no sections parsed, treat whole text as description
+  if (!Object.keys(sections).length) sections.description = text.trim();
+  return sections;
+}
+
+// ── Build a styled card DOM element from parsed sections ──────────────────
+function buildIcaCard(sections, rawText) {
+  const LABELS = {
+    description:    { icon: '🔍', title: 'Vulnerability Description' },
+    root_cause:     { icon: '🧬', title: 'Root Cause Analysis' },
+    remediation:    { icon: '🔧', title: 'Remediation Steps' },
+    code_fix:       { icon: '💻', title: 'Sample Code Fix' },
+    best_practices: { icon: '🛡️', title: 'Secure Coding Best Practices' },
+  };
+  const ORDER = ['description','root_cause','remediation','code_fix','best_practices'];
+
+  const card = document.createElement('div');
+  card.className = 'ica-analysis-card';
+
+  const hdr = document.createElement('div');
+  hdr.className = 'ica-card-hdr';
+  hdr.innerHTML = `
+    <span class="ica-card-badge">🤖 ICA Agent — AI Vulnerability Remediation</span>
+    <span class="ica-card-ts">${new Date().toLocaleTimeString()}</span>
+    <button class="btn-clear-chat" onclick="this.closest('.ica-analysis-card').remove()" title="Remove card">✕</button>`;
+  card.appendChild(hdr);
+
+  const hasAny = ORDER.some(k => sections[k]);
+
+  if (hasAny) {
+    for (const key of ORDER) {
+      if (!sections[key]) continue;
+      const { icon, title } = LABELS[key];
+      const sec = document.createElement('div');
+      sec.className = 'ica-card-section';
+      const isCode = key === 'code_fix';
+      sec.innerHTML = `
+        <div class="ica-section-title">${icon} ${title}</div>
+        <div class="ica-section-body ${isCode ? 'ica-code' : ''}">
+          ${isCode
+            ? '<pre>' + escHtml(sections[key]) + '</pre>'
+            : formatResponse(sections[key])
+          }
+        </div>`;
+      card.appendChild(sec);
+    }
+  } else {
+    // Fallback: show full formatted text
+    const sec = document.createElement('div');
+    sec.className = 'ica-card-section';
+    sec.innerHTML = `<div class="ica-section-body">${formatResponse(rawText)}</div>`;
+    card.appendChild(sec);
+  }
+
+  return card;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Panel resize ──────────────────────────────────────
+(function initResize() {
+  const handle = document.getElementById('icaResizeHandle');
+  const panel  = document.getElementById('icaChatPanel');
+  let dragging = false, startX, startW;
+  handle.addEventListener('mousedown', e => {
+    dragging = true; startX = e.clientX; startW = panel.offsetWidth;
+    document.body.style.userSelect = 'none';
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    panel.style.width = Math.max(340, Math.min(700, startW + (startX - e.clientX))) + 'px';
+  });
+  document.addEventListener('mouseup', () => { dragging = false; document.body.style.userSelect = ''; });
+})();
+
+</script>
+
 <script>
 // ════════════════════════════════════════════════════
 //  STATE
@@ -428,10 +1591,18 @@ function processFile(file) {
       allFindings = normalise(rows);
       document.getElementById('fileInfo').textContent =
         `📁 ${file.name}  ·  ${allFindings.length} findings loaded  ·  ${wb.SheetNames[0]}`;
+      // Feed the raw row text into the AI engine
+      uploadedFileName = file.name;
+      uploadedFileText = rows.map((r, i) =>
+        'Row ' + (i+1) + ': ' + Object.entries(r).map(([k,v]) => k + '=' + v).join(' | ')
+      ).join('\n');
       setTimeout(() => {
         document.getElementById('processing').classList.remove('active');
         renderDashboard();
         document.getElementById('dashboard').classList.add('active');
+        // Auto-open AI chat panel and kick off analysis
+        document.getElementById('icaChatPanel').classList.add('open');
+        sendToIca('Summarise all High severity findings', false);
       }, 400);
     } catch(err) {
       alert('Error reading file: ' + err.message);
@@ -512,6 +1683,8 @@ function renderDashboard() {
   renderFindings();
   renderRemediation();
   renderEffort();
+  renderPriorityBanner();
+  switchTab('remediation');
 }
 
 // ── KPIs ──
@@ -522,11 +1695,39 @@ function renderKPIs() {
   const projs  = [...new Set(allFindings.map(f => f.project).filter(Boolean))].length;
   const files  = [...new Set(allFindings.map(f => f.location.split('/').pop()).filter(Boolean))].length;
   document.getElementById('kpiGrid').innerHTML = `
-    <div class="kpi-card kpi-red"><div class="kpi-num">${total}</div><div class="kpi-label">Total Findings</div></div>
-    <div class="kpi-card kpi-orange"><div class="kpi-num">${highs}</div><div class="kpi-label">Critical / High</div></div>
-    <div class="kpi-card kpi-blue"><div class="kpi-num">${cwes}</div><div class="kpi-label">Distinct CWE Types</div></div>
-    <div class="kpi-card kpi-purple"><div class="kpi-num">${projs}</div><div class="kpi-label">Affected Projects</div></div>
-    <div class="kpi-card kpi-green"><div class="kpi-num">${files}</div><div class="kpi-label">Affected Files</div></div>`;
+    <div class="kpi-card kpi-red"><div class="kpi-num">${total}</div><div class="kpi-label">Total Findings</div><div class="kpi-hint">All vulnerabilities found</div></div>
+    <div class="kpi-card kpi-orange"><div class="kpi-num">${highs}</div><div class="kpi-label">Critical / High</div><div class="kpi-hint">Fix these first — urgent</div></div>
+    <div class="kpi-card kpi-blue"><div class="kpi-num">${cwes}</div><div class="kpi-label">Vulnerability Types</div><div class="kpi-hint">Distinct CWE categories</div></div>
+    <div class="kpi-card kpi-purple"><div class="kpi-num">${projs}</div><div class="kpi-label">Affected Projects</div><div class="kpi-hint">Teams that need to act</div></div>
+    <div class="kpi-card kpi-green"><div class="kpi-num">${files}</div><div class="kpi-label">Affected Files</div><div class="kpi-hint">Files needing code changes</div></div>`;
+}
+
+// ── PRIORITY BANNER ──
+function renderPriorityBanner() {
+  const cweCounts = {};
+  const cweHighest = {};
+  allFindings.forEach(f => {
+    if (!f.cwe_id) return;
+    cweCounts[f.cwe_id] = (cweCounts[f.cwe_id]||0)+1;
+    const sev = f.severity;
+    if (!cweHighest[f.cwe_id] || sev === 'critical' || (sev === 'high' && cweHighest[f.cwe_id] !== 'critical'))
+      cweHighest[f.cwe_id] = sev;
+  });
+  const top3 = Object.entries(cweCounts).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  if (!top3.length) return;
+  const ranks = ['Fix Now', 'Fix Next', 'Fix Soon'];
+  const colors = ['#b91c1c','#c2410c','#1d4ed8'];
+  document.getElementById('priorityList').innerHTML = top3.map(([cwe, count], i) => {
+    const r = getRemediation(cwe);
+    return `<div class="priority-item">
+      <div class="p-rank" style="color:${colors[i]}">${ranks[i]}</div>
+      <div class="p-cwe">${cwe} — ${r.title}</div>
+      <div class="p-count">${count} finding${count>1?'s':''} &nbsp;·&nbsp; ${r.effort} to fix</div>
+      <div class="p-count" style="margin-top:4px;color:#374151;">${r.sprint}</div>
+      <div class="p-action" onclick="switchTab('remediation');setTimeout(()=>{document.getElementById('rem-${cwe.replace('-','')}')?.scrollIntoView({behavior:'smooth'})},100)">See how to fix &rarr;</div>
+    </div>`;
+  }).join('');
+  document.getElementById('priorityBanner').style.display = 'block';
 }
 
 // ── CHARTS ──
@@ -833,6 +2034,14 @@ function getRemediation(cwe) {
 }
 
 // ── REMEDIATION CARDS ──
+function copyCode(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
 function renderRemediation() {
   const cweCounts = {};
   const cweFiles  = {};
@@ -845,8 +2054,10 @@ function renderRemediation() {
 
   const html = Object.entries(cweCounts).sort((a,b)=>b[1]-a[1]).map(([cwe, count]) => {
     const r = getRemediation(cwe);
+    const fixId = 'fix-'+cwe.replace(/\W/g,'');
+    const vulnId = 'vuln-'+cwe.replace(/\W/g,'');
     return `
-    <div class="rem-card">
+    <div class="rem-card" id="rem-${cwe.replace('-','')}">
       <div class="rem-card-hdr">
         <span class="badge badge-cwe">${cwe}</span>
         <span class="cwe-label">${r.title}</span>
@@ -855,11 +2066,17 @@ function renderRemediation() {
       </div>
       <div class="rem-card-body">
         <p><strong>What is it?</strong> ${r.what}</p>
-        <p><strong>Security Impact:</strong> ${r.impact}</p>
+        <p><strong>Why it is dangerous:</strong> ${r.impact}</p>
         <p><strong>Affected files:</strong> <code>${[...cweFiles[cwe]].join('</code>, <code>')}</code></p>
 
+        <div class="rem-summary">
+          <div class="rem-summary-item"><div class="rs-label">Time to fix</div><div class="rs-val">${r.effort}</div></div>
+          <div class="rem-summary-item"><div class="rs-label">Change risk</div><div class="rs-val">${r.risk}</div></div>
+          <div class="rem-summary-item"><div class="rs-label">When to fix</div><div class="rs-val">${r.sprint}</div></div>
+        </div>
+
         <div class="steps">
-          <strong style="font-size:13px;">Remediation Steps:</strong>
+          <strong style="font-size:13px;">Step-by-step fix instructions:</strong>
           ${r.steps.map((s,i) => `
             <div class="step">
               <div class="sn">${i+1}</div>
@@ -867,10 +2084,17 @@ function renderRemediation() {
             </div>`).join('')}
         </div>
 
-        <div class="code-label">VULNERABLE Pattern</div>
-        <div class="code-block vuln">${escHtml(r.vuln)}</div>
-        <div class="code-label">FIXED Pattern</div>
-        <div class="code-block fix">${escHtml(r.fix)}</div>
+        <div class="code-label">
+          <span style="color:#b91c1c;">BAD — Vulnerable Code Pattern</span>
+          <button class="btn-copy" onclick="copyCode(this, document.getElementById('${vulnId}').textContent)">Copy</button>
+        </div>
+        <div class="code-block vuln" id="${vulnId}">${escHtml(r.vuln)}</div>
+
+        <div class="code-label">
+          <span style="color:#166534;">GOOD — Fixed Code Pattern</span>
+          <button class="btn-copy" onclick="copyCode(this, document.getElementById('${fixId}').textContent)">Copy</button>
+        </div>
+        <div class="code-block fix" id="${fixId}">${escHtml(r.fix)}</div>
       </div>
     </div>`;
   }).join('');
@@ -922,9 +2146,9 @@ function escHtml(s) {
 }
 
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => {
-    const names = ['findings','remediation','effort','automation'];
-    t.classList.toggle('active', names[i] === name);
+  document.querySelectorAll('.tab').forEach(t => {
+    const id = t.id.replace('tab-btn-','');
+    t.classList.toggle('active', id === name);
   });
   document.querySelectorAll('.tab-pane').forEach(p => {
     p.classList.toggle('active', p.id === 'tab-'+name);
@@ -937,6 +2161,7 @@ function resetDashboard() {
   document.getElementById('uploadSection').style.display = '';
   document.getElementById('processing').classList.remove('active');
   document.getElementById('fileInput').value = '';
+  document.getElementById('priorityBanner').style.display = 'none';
 }
 
 function exportCSV() {
