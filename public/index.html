@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Champion Dashboard — Vulnerability Remediation</title>
+<!-- SheetJS for in-browser Excel parsing — CDN primary, local copy fallback -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script>
+  if (typeof XLSX === 'undefined') {
+    // Fallback to local copy (works when served from same directory)
+    var s = document.createElement('script');
+    s.src = 'xlsx.full.min.js';
+    document.head.appendChild(s);
+  }
+</script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px; line-height: 1.6; color: #1f2328;
+    background: #f0f4f8; min-height: 100vh;
+  }
+
+  /* ── TOP NAV ── */
+  .topnav {
+    background: #1c2b4a; color: #fff; padding: 0 24px;
+    display: flex; align-items: center; gap: 14px; height: 52px;
+  }
+  .topnav .logo { font-size: 16px; font-weight: 700; letter-spacing: .5px; color: #60a5fa; }
+  .topnav .subtitle { font-size: 12px; color: #94a3b8; margin-left: 4px; }
+  .topnav .spacer { flex: 1; }
+  .topnav .nav-badge { background: #3b82d4; border-radius: 12px; padding: 2px 10px; font-size: 11px; font-weight: 600; }
+  .nav-ica-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #0f62fe; color: #fff; text-decoration: none;
+    border-radius: 6px; padding: 5px 14px; font-size: 12px; font-weight: 700;
+    border: 1px solid #0043ce; white-space: nowrap; letter-spacing: .2px;
+    transition: background .15s;
+  }
+  .nav-ica-btn:hover { background: #0043ce; text-decoration: none; color: #fff; }
+
+  /* ── LAYOUT ── */
+  .main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+
+  /* ── UPLOAD ZONE ── */
+  .upload-section { margin-bottom: 28px; }
+  .upload-zone {
+    border: 2px dashed #93c5fd; border-radius: 10px; background: #eff6ff;
+    padding: 40px 24px; text-align: center; cursor: pointer;
+    transition: border-color .2s, background .2s;
+  }
+  .upload-zone:hover, .upload-zone.drag-over { border-color: #3b82d4; background: #dbeafe; }
+  .upload-zone .upload-icon { font-size: 40px; color: #3b82d4; margin-bottom: 10px; }
+  .upload-zone h3 { font-size: 15px; font-weight: 700; color: #1e40af; margin-bottom: 4px; }
+  .upload-zone p  { font-size: 13px; color: #57606a; }
+  .upload-zone input[type="file"] { display: none; }
+  .btn-upload {
+    display: inline-block; margin-top: 14px; background: #3b82d4; color: #fff;
+    border: none; border-radius: 6px; padding: 8px 20px; font-size: 13px;
+    font-weight: 600; cursor: pointer;
+  }
+  .btn-upload:hover { background: #2563eb; }
+
+  /* ── PROCESSING INDICATOR ── */
+  .processing { display: none; text-align: center; padding: 24px; }
+  .processing.active { display: block; }
+  .spinner { display: inline-block; width: 36px; height: 36px; border: 4px solid #e5e7eb; border-top-color: #3b82d4; border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── DASHBOARD (hidden until data loaded) ── */
+  #dashboard { display: none; }
+  #dashboard.active { display: block; }
+
+  /* ── SUMMARY CARDS ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
+  .kpi-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; }
+  .kpi-card .kpi-num  { font-size: 28px; font-weight: 700; }
+  .kpi-card .kpi-label { font-size: 11px; color: #57606a; margin-top: 2px; }
+  .kpi-card .kpi-hint { font-size: 10px; color: #94a3b8; margin-top: 4px; font-style: italic; }
+  .kpi-red  .kpi-num { color: #b91c1c; }
+  .kpi-orange .kpi-num { color: #c2410c; }
+  .kpi-purple .kpi-num { color: #7c3aed; }
+  .kpi-blue .kpi-num { color: #1d4ed8; }
+  .kpi-green .kpi-num { color: #166534; }
+
+  /* ── PRIORITY BANNER ── */
+  .priority-banner { background: #fff; border: 2px solid #f59e0b; border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; }
+  .priority-banner h3 { font-size: 14px; font-weight: 700; color: #92400e; margin-bottom: 10px; }
+  .priority-list { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+  .priority-item { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 12px; }
+  .priority-item .p-rank { font-size: 10px; font-weight: 700; color: #92400e; text-transform: uppercase; margin-bottom: 4px; }
+  .priority-item .p-cwe { font-size: 13px; font-weight: 700; color: #1f2328; }
+  .priority-item .p-count { font-size: 11px; color: #57606a; margin-top: 2px; }
+  .priority-item .p-action { font-size: 11px; color: #3b82d4; margin-top: 6px; cursor: pointer; font-weight: 600; }
+  .priority-item .p-action:hover { text-decoration: underline; }
+  @media (max-width: 700px) { .priority-list { grid-template-columns: 1fr; } }
+
+  /* ── SECTION HEADER ── */
+  .section-hdr {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 14px; font-weight: 700; border-left: 3px solid #3b82d4;
+    padding-left: 10px; margin: 24px 0 10px;
+  }
+
+  /* ── TABS ── */
+  .tabs { display: flex; gap: 4px; border-bottom: 2px solid #e5e7eb; margin-bottom: 16px; }
+  .tab {
+    padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+    border-radius: 6px 6px 0 0; color: #57606a; border: 1px solid transparent;
+    border-bottom: none; background: transparent;
+  }
+  .tab.active { background: #fff; color: #1d4ed8; border-color: #e5e7eb; border-bottom-color: #fff; margin-bottom: -2px; }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* ── TABLE ── */
+  .table-wrap { overflow-x: auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th { background: #f7f8fa; border-bottom: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; font-weight: 600; white-space: nowrap; position: sticky; top: 0; z-index: 1; }
+  tbody td { border-bottom: 1px solid #f0f0f0; padding: 7px 10px; vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #f7f8fa; }
+  .mono { font-family: "Consolas","Courier New",monospace; font-size: 11px; color: #57606a; word-break: break-all; }
+
+  /* ── BADGES ── */
+  .badge {
+    display: inline-block; padding: 2px 7px; border-radius: 4px;
+    font-size: 10px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; white-space: nowrap;
+  }
+  .badge-high   { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+  .badge-medium { background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; }
+  .badge-low    { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+  .badge-cwe    { background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; }
+  .badge-sast   { background: #fdf4ff; color: #7c3aed; border: 1px solid #d8b4fe; }
+  .badge-sca    { background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; }
+  .badge-ok     { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+
+  /* ── REMEDIATION CARDS ── */
+  .rem-grid { display: grid; gap: 16px; }
+  .rem-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+  .rem-card-hdr { background: #f7f8fa; border-bottom: 1px solid #e5e7eb; padding: 10px 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .rem-card-hdr .cwe-label { font-weight: 700; font-size: 13px; }
+  .rem-card-hdr .count { background: #b91c1c; color: #fff; border-radius: 12px; padding: 1px 8px; font-size: 11px; font-weight: 700; }
+  .rem-card-body { padding: 14px; }
+  .rem-card-body p { font-size: 13px; color: #374151; margin-bottom: 8px; }
+  .rem-card-body strong { color: #1f2328; }
+  .rem-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin: 10px 0 14px; }
+  .rem-summary-item { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px 10px; font-size: 11px; }
+  .rem-summary-item .rs-label { color: #57606a; margin-bottom: 2px; }
+  .rem-summary-item .rs-val { font-weight: 700; color: #1f2328; font-size: 12px; }
+
+  /* Steps */
+  .steps { margin: 10px 0; }
+  .step { display: flex; gap: 10px; margin-bottom: 8px; }
+  .step .sn { min-width: 22px; height: 22px; background: #3b82d4; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+  .step p { font-size: 13px; color: #374151; }
+
+  /* Code blocks */
+  .code-label { font-size: 11px; font-weight: 700; color: #57606a; margin: 10px 0 4px; display: flex; align-items: center; justify-content: space-between; }
+  .btn-copy { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 4px; padding: 2px 8px; font-size: 10px; font-weight: 600; cursor: pointer; color: #374151; }
+  .btn-copy:hover { background: #e5e7eb; }
+  .btn-copy.copied { background: #f0fdf4; border-color: #86efac; color: #166534; }
+  .code-block { border-radius: 6px; padding: 12px 14px; font-family: "Consolas","Courier New",monospace; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; margin-bottom: 8px; }
+  .code-block.vuln { background: #fef9f9; border: 1px solid #fca5a5; }
+  .code-block.fix  { background: #f0fdf4; border: 1px solid #86efac; }
+  code { background: #f0f0f0; border-radius: 3px; padding: 1px 5px; font-size: 12px; font-family: "Consolas",monospace; }
+
+  /* ── EFFORT TABLE ── */
+  .eff-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .eff-table th, .eff-table td { border: 1px solid #e5e7eb; padding: 8px 12px; }
+  .eff-table th { background: #f7f8fa; font-weight: 600; text-align: left; }
+  .eff-table td { background: #fff; }
+
+  /* ── AUTOMATION BLUEPRINT ── */
+  .auto-section { background: #fff; border: 1px solid #d8b4fe; border-radius: 8px; padding: 20px; }
+  .auto-section h3 { font-size: 14px; font-weight: 700; color: #7c3aed; margin-bottom: 12px; }
+  .pipeline { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin: 14px 0; }
+  .pipe-step { background: #eff6ff; border: 1px solid #93c5fd; border-radius: 6px; padding: 10px 14px; font-size: 12px; font-weight: 600; color: #1d4ed8; text-align: center; min-width: 100px; }
+  .pipe-arrow { color: #3b82d4; font-size: 20px; padding: 0 2px; }
+  .auto-list { font-size: 13px; color: #374151; padding-left: 20px; line-height: 1.9; }
+  .auto-list li { margin-bottom: 2px; }
+
+  /* ── CHARTS (SVG bar) ── */
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .chart-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; }
+  .chart-card h4 { font-size: 12px; font-weight: 700; color: #57606a; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; }
+  .bar-label { width: 160px; text-align: right; flex-shrink: 0; color: #374151; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-track { flex: 1; background: #f0f0f0; border-radius: 3px; height: 14px; overflow: hidden; }
+  .bar-fill  { height: 100%; border-radius: 3px; transition: width .4s; }
+  .bar-count { width: 28px; font-weight: 700; color: #1f2328; }
+
+  /* ── FILTER BAR ── */
+  .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+  .filter-bar select, .filter-bar input {
+    padding: 5px 10px; border: 1px solid #e5e7eb; border-radius: 5px;
+    font-size: 12px; background: #fff; color: #1f2328;
+  }
+  .filter-bar label { font-size: 12px; color: #57606a; }
+  .btn-clear { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 5px; padding: 5px 12px; font-size: 12px; cursor: pointer; color: #374151; }
+  .btn-clear:hover { background: #e5e7eb; }
+
+  /* ── EXPORT BTN ── */
+  .export-bar { display: flex; gap: 8px; margin-bottom: 16px; align-items: center; }
+  .btn-export { background: #1c2b4a; color: #fff; border: none; border-radius: 6px; padding: 7px 16px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .btn-export:hover { background: #2563eb; }
+  .file-info { font-size: 12px; color: #57606a; }
+
+  a { color: #3b82d4; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ── EMPTY STATE ── */
+  .empty-state { text-align: center; padding: 40px; color: #57606a; font-size: 13px; }
+
+  /* ── FOOTER ── */
+  .footer { margin-top: 48px; padding-top: 14px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #57606a; }
+
+  @media (max-width: 700px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .chart-row { grid-template-columns: 1fr; }
+    .pipeline { flex-direction: column; }
+    .pipe-arrow { transform: rotate(90deg); }
+  }
+
+  /* Clipboard toast */
+  #clipToast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 99999;
+    background: #1c2b4a; color: #fff; border-radius: 8px;
+    padding: 9px 16px; font-size: 12px; font-weight: 600;
+    opacity: 0; transition: opacity .3s; pointer-events: none;
+  }
+  #clipToast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<div class="topnav">
+  <span class="upload-icon" style="font-size:20px;">🛡</span>
+  <span class="logo">Security Champion</span>
+  <span class="subtitle">Vulnerability Remediation Dashboard</span>
+  <div class="spacer"></div>
+  <a href="https://remea.ica.ibm.com/ica/curatorai/apps/ui/new-chat/6a5662f063eafa2b20da8d20"
+     target="_blank" rel="noopener noreferrer" class="nav-ica-btn"
+     title="Open ICA AI Vulnerability Remediation Agent">
+    💬 Open ICA Agent
+  </a>
+  <span class="nav-badge">Security Champion</span>
+</div>
+
+<!-- Clipboard toast -->
+<div id="clipToast"></div>
+
+<div class="main">
+
+  <!-- UPLOAD SECTION -->
+  <div class="upload-section" id="uploadSection">
+    <div class="upload-zone" id="uploadZone">
+      <div class="upload-icon">📊</div>
+      <h3>Upload Your Polaris Vulnerability Export</h3>
+      <p>Drag &amp; drop your <strong>.xlsx</strong> or <strong>.csv</strong> file here, or click to browse.</p>
+      <p style="margin-top:6px;font-size:12px;">Expected columns: Application, Project, Issue Type, Severity, Test Type, CWE ID, Location, Link</p>
+      <label class="btn-upload">
+        Browse File
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+      </label>
+    </div>
+  </div>
+
+  <!-- PROCESSING -->
+  <div class="processing" id="processing">
+    <div class="spinner"></div>
+    <p style="margin-top:12px;font-size:13px;color:#57606a;">Reading Excel file and generating remediation guidance…</p>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard">
+
+    <!-- FILE INFO + EXPORT -->
+    <div class="export-bar">
+      <span class="file-info" id="fileInfo"></span>
+      <div style="flex:1"></div>
+      <button class="btn-export" onclick="exportCSV()">⬇ Export Filtered CSV</button>
+      <button class="btn-export" onclick="window.print()">🖨 Print Report</button>
+      <button class="btn-export" style="background:#57606a;" onclick="resetDashboard()">↩ Upload New File</button>
+    </div>
+
+    <!-- KPI CARDS -->
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <!-- PRIORITY BANNER -->
+    <div class="priority-banner" id="priorityBanner" style="display:none;">
+      <h3>What to Fix First — Top Priority Actions</h3>
+      <div class="priority-list" id="priorityList"></div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="chart-row" id="chartRow"></div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <div class="tab" id="tab-btn-findings" onclick="switchTab('findings')">📋 Findings</div>
+      <div class="tab active" id="tab-btn-remediation" onclick="switchTab('remediation')">🔧 Fix It — Remediation</div>
+      <div class="tab" id="tab-btn-effort" onclick="switchTab('effort')">📅 Sprint Plan</div>
+      <div class="tab" id="tab-btn-automation" onclick="switchTab('automation')">🤖 IBM Bob + ICA</div>
+    </div>
+
+    <!-- TAB: FINDINGS -->
+    <div class="tab-pane" id="tab-findings">
+      <div class="section-hdr">Finding Inventory</div>
+      <div class="filter-bar">
+        <label>Severity:</label>
+        <select id="fSeverity" onchange="applyFilters()">
+          <option value="">All</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+          <option value="critical">Critical</option>
+        </select>
+        <label>CWE:</label>
+        <select id="fCwe" onchange="applyFilters()"></select>
+        <label>Project:</label>
+        <select id="fProject" onchange="applyFilters()"></select>
+        <label>Test Type:</label>
+        <select id="fTestType" onchange="applyFilters()"></select>
+        <input type="text" id="fSearch" placeholder="Search file / issue…" oninput="applyFilters()" style="width:200px;">
+        <button class="btn-clear" onclick="clearFilters()">Clear</button>
+        <span id="filterCount" style="font-size:12px;color:#57606a;"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Application</th>
+              <th>Project</th>
+              <th>Issue Type</th>
+              <th>Severity</th>
+              <th>Test Type</th>
+              <th>CWE</th>
+              <th>File / Location</th>
+              <th>First Detected</th>
+              <th>Triage</th>
+              <th>Link</th>
+            </tr>
+          </thead>
+          <tbody id="findingsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB: REMEDIATION -->
+    <div class="tab-pane active" id="tab-remediation">
+      <div class="section-hdr">Remediation Guidance by CWE — How to Fix Each Vulnerability</div>
+      <p style="font-size:13px;color:#57606a;margin-bottom:14px;">Each card below shows exactly what the vulnerability is, why it is dangerous, and the exact code fix to apply. Start from the top — issues are sorted by most findings first.</p>
+      <div class="rem-grid" id="remGrid"></div>
+    </div>
+
+    <!-- TAB: EFFORT -->
+    <div class="tab-pane" id="tab-effort">
+      <div class="section-hdr">Effort Estimate &amp; Sprint Action Plan</div>
+      <div class="table-wrap" style="margin-bottom:20px;">
+        <table class="eff-table">
+          <thead>
+            <tr>
+              <th>Group / CWE</th>
+              <th>Findings</th>
+              <th>Unique Files</th>
+              <th>Estimated Effort</th>
+              <th>Regression Risk</th>
+              <th>Sprint Recommendation</th>
+            </tr>
+          </thead>
+          <tbody id="effortBody"></tbody>
+        </table>
+      </div>
+      <div class="section-hdr">Per-Finding Action Plan</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>File</th>
+              <th>CWE</th>
+              <th>Assign To</th>
+              <th>Action</th>
+              <th>Verify Via</th>
+              <th>Link</th>
+            </tr>
+          </thead>
+          <tbody id="actionBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB: AUTOMATION -->
+    <div class="tab-pane" id="tab-automation">
+
+      <div class="ica-tab-placeholder" id="icaTabPlaceholder">
+        <strong>💬 Use your ICA Agent for AI-powered vulnerability guidance</strong><br>
+        Click the <strong>💬 Open ICA Agent</strong> button in the top navigation bar to open your
+        IBM ICA AI agent in a new tab — ask it anything about your vulnerabilities, get fix guidance,
+        code examples, and sprint recommendations directly from your watsonx-powered agent.
+      </div>
+
+      <!-- ── ICA Data Consumption & Capabilities Reference ─────────────── -->
+      <div class="auto-section" style="margin-bottom:18px;">
+        <div class="section-hdr">ICA Agent — Data Consumption &amp; Dashboard Display Capabilities</div>
+        <p style="font-size:13px;color:#374151;margin-bottom:12px;">
+          Everything the ICA "AI Vulnerability Remediation" agent returns can be captured and
+          displayed here. The table below documents exactly what information flows from the agent
+          into this dashboard.
+        </p>
+        <table class="vuln-table" style="margin-bottom:0;">
+          <thead>
+            <tr>
+              <th style="width:22%;">Data Category</th>
+              <th style="width:36%;">What the ICA Agent Returns</th>
+              <th style="width:22%;">How It Is Displayed</th>
+              <th style="width:20%;">Limit / Constraint</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>🔍 Vulnerability Description</strong></td>
+              <td>Concise plain-language explanation of the vulnerability (CWE, type, impact)</td>
+              <td>Formatted text section in pinned card</td>
+              <td>Full text — no truncation</td>
+            </tr>
+            <tr>
+              <td><strong>🧬 Root Cause Analysis</strong></td>
+              <td>Technical explanation of why the code is vulnerable (e.g. hard-coded string in source)</td>
+              <td>Formatted text section in pinned card</td>
+              <td>Full text — no truncation</td>
+            </tr>
+            <tr>
+              <td><strong>🔧 Remediation Steps</strong></td>
+              <td>Numbered action steps to fix the vulnerability</td>
+              <td>Bulleted list in pinned card</td>
+              <td>Full list — no truncation</td>
+            </tr>
+            <tr>
+              <td><strong>💻 Sample Code Fix</strong></td>
+              <td>Before/after code snippet in the relevant language (Java, Python, etc.)</td>
+              <td>Syntax-highlighted code block (dark theme)</td>
+              <td>Full code — no truncation</td>
+            </tr>
+            <tr>
+              <td><strong>🛡️ Secure Coding Best Practices</strong></td>
+              <td>5–7 preventative recommendations relevant to the CWE category</td>
+              <td>Formatted list in pinned card</td>
+              <td>Full list — no truncation</td>
+            </tr>
+            <tr>
+              <td><strong>📎 Uploaded File Context</strong></td>
+              <td>Excel/CSV rows injected as context. Up to 12 000 characters of file content per request</td>
+              <td>Referenced in prompt; response reflects the data</td>
+              <td>12 000 chars (~150–200 rows of data)</td>
+            </tr>
+            <tr>
+              <td><strong>💬 Conversation History</strong></td>
+              <td>Multi-turn chat — agent remembers context within a session (session_id)</td>
+              <td>Chat panel retains last 40 messages (20 turns)</td>
+              <td>Last 40 messages kept in memory</td>
+            </tr>
+            <tr>
+              <td><strong>📌 Pinned Cards</strong></td>
+              <td>Any agent response can be pinned to this tab as a structured card</td>
+              <td>Up to N cards pinned simultaneously; each removable</td>
+              <td>No hard limit — browser memory only</td>
+            </tr>
+            <tr>
+              <td><strong>🏷️ ICA Session ID</strong></td>
+              <td>Returned by ICA API to maintain conversation continuity</td>
+              <td>Stored in JS memory; sent with every follow-up request</td>
+              <td>Per-browser-session (lost on refresh)</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="font-size:11px;color:#57606a;margin-top:8px;">
+          * The 12 000-character file injection limit can be increased by editing
+          <code>uploadedFileText.slice(0, 12000)</code> in the dashboard JS. Claude 4.5 Sonnet
+          supports ~180 000 tokens of context — well beyond any single vulnerability report.
+        </p>
+      </div>
+
+      <div class="auto-section">
+        <h3>How This Dashboard Works — Zero Manual Data Entry</h3>
+        <div class="pipeline">
+          <div class="pipe-step">1. Polaris Export<br>.xlsx / .csv</div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-step">2. Upload Here<br>or Bob Playground</div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-step">3. SheetJS<br>Auto-Parse</div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-step">4. CWE Engine<br>Maps Guidance</div>
+          <div class="pipe-arrow">→</div>
+          <div class="pipe-step">5. Dashboard<br>Report</div>
+        </div>
+
+        <p style="font-size:13px;color:#374151;margin-bottom:10px;">
+          <strong>This HTML file is fully self-contained.</strong> It uses SheetJS to parse any .xlsx or .csv file
+          directly in the browser — no server, no upload to external systems, no manual copy-paste.
+          Every time the Polaris export changes, simply upload the new file and the dashboard regenerates instantly.
+        </p>
+
+        <div class="section-hdr" style="margin-top:14px;">IBM Bob Integration (Playground Workflow)</div>
+        <ul class="auto-list">
+          <li><strong>Step 1:</strong> Copy your Polaris <code>.xlsx</code> export into <code>C:\Users\002K6E744\.bob\playground\</code></li>
+          <li><strong>Step 2:</strong> Tell Bob: <em>"Process my vulnerability file vulnerabilities.xlsx"</em></li>
+          <li><strong>Step 3:</strong> Bob uses <code>read_xlsx</code> to read all rows and columns automatically</li>
+          <li><strong>Step 4:</strong> Bob calls <code>generate_batch_report</code> via the Polaris Remediation MCP Server</li>
+          <li><strong>Step 5:</strong> Bob renders this dashboard with full remediation guidance, code fixes, and action plans</li>
+        </ul>
+
+        <div class="section-hdr" style="margin-top:14px;">IBM ICA (Watsonx Assistant) Integration</div>
+        <ul class="auto-list">
+          <li><strong>Register Bob as an ICA Action:</strong> Expose the "Process Vulnerability File" workflow as an ICA skill</li>
+          <li><strong>Developer Workflow:</strong> Developer opens ICA chat → uploads or references the Polaris export → ICA triggers Bob → Bob reads xlsx, runs MCP, returns this report in chat</li>
+          <li><strong>No Security Expertise Required:</strong> Developers get contextual, file-specific remediation guidance without needing to understand SAST findings manually</li>
+          <li><strong>Scalable:</strong> Works for 10 findings or 10,000 — Bob batches MCP calls automatically</li>
+          <li><strong>Audit Trail:</strong> Every report is timestamped and linkable to the source Polaris finding IDs</li>
+        </ul>
+
+        <div class="section-hdr" style="margin-top:14px;">Supported Input Formats</div>
+        <ul class="auto-list">
+          <li><strong>.xlsx / .xls</strong> — Polaris Excel export (any sheet, any row count)</li>
+          <li><strong>.csv</strong> — Polaris CSV export with the same column headers</li>
+          <li><strong>Variable schema:</strong> The dashboard auto-detects column positions by name — column order does not matter</li>
+          <li><strong>New CWEs:</strong> The remediation engine auto-generates guidance for any CWE not in its built-in library</li>
+        </ul>
+
+        <!-- ── SUPPORTED LANGUAGES & TOOLS ─────────────────────────────── -->
+        <div class="section-hdr" style="margin-top:20px;">Supported Languages — Automated Remediation Reports</div>
+        <p style="font-size:13px;color:#374151;margin-bottom:12px;">
+          The dashboard generates code-level fix guidance for vulnerabilities in all of the languages below.
+          Polaris SAST/SCA scans these automatically — upload the export and the report is ready instantly.
+        </p>
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
+          <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+            <div style="font-weight:700;font-size:13px;color:#1f2328;margin-bottom:6px;">Java / Kotlin</div>
+            <div style="font-size:11px;color:#57606a;line-height:1.7;">Spring Boot, Maven, Gradle<br>Android, Quarkus, Micronaut</div>
+          </div>
+          <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+            <div style="font-weight:700;font-size:13px;color:#1f2328;margin-bottom:6px;">C# / .NET</div>
+            <div style="font-size:11px;color:#57606a;line-height:1.7;">ASP.NET Core, WPF, WinForms<br>.NET 6/7/8, Blazor</div>
+          </div>
+          <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+            <div style="font-weight:700;font-size:13px;color:#1f2328;margin-bottom:6px;">JavaScript / TypeScript</div>
+            <div style="font-size:11px;color:#57606a;line-height:1.7;">React, Angular, Vue, Node.js<br>Express, Next.js</div>
+          </div>
+          <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+            <div style="font-weight:700;font-size:13px;color:#1f2328;margin-bottom:6px;">Python</div>
+            <div style="font-size:11px;color:#57606a;line-height:1.7;">Django, Flask, FastAPI<br>AWS Lambda, Pandas</div>
+          </div>
+          <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+            <div style="font-weight:700;font-size:13px;color:#1f2328;margin-bottom:6px;">Go</div>
+            <div style="font-size:11px;color:#57606a;line-height:1.7;">Gin, Echo, gRPC<br>Microservices, CLI tools</div>
+          </div>
+          <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+            <div style="font-weight:700;font-size:13px;color:#1f2328;margin-bottom:6px;">C / C++</div>
+            <div style="font-size:11px;color:#57606a;line-height:1.7;">Embedded, OS-level<br>OpenSSL, native libs</div>
+          </div>
+          <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+            <div style="font-weight:700;font-size:13px;color:#1f2328;margin-bottom:6px;">Ruby / PHP</div>
+            <div style="font-size:11px;color:#57606a;line-height:1.7;">Rails, Sinatra<br>Laravel, Symfony</div>
+          </div>
+          <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+            <div style="font-weight:700;font-size:13px;color:#1f2328;margin-bottom:6px;">IaC / Config</div>
+            <div style="font-size:11px;color:#57606a;line-height:1.7;">Kubernetes YAML, Terraform<br>Dockerfile, Helm, Ansible</div>
+          </div>
+        </div>
+
+        <div class="section-hdr" style="margin-top:20px;">Supported Scanning Tools — How to Get the Export</div>
+        <p style="font-size:13px;color:#374151;margin-bottom:12px;">
+          Any of these tools can generate the <code>.xlsx</code> or <code>.csv</code> export this dashboard reads.
+        </p>
+
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:4px;">
+          <thead>
+            <tr>
+              <th style="background:#f7f8fa;border:1px solid #e5e7eb;padding:8px 12px;text-align:left;font-weight:700;">Tool</th>
+              <th style="background:#f7f8fa;border:1px solid #e5e7eb;padding:8px 12px;text-align:left;font-weight:700;">Type</th>
+              <th style="background:#f7f8fa;border:1px solid #e5e7eb;padding:8px 12px;text-align:left;font-weight:700;">How to Export</th>
+              <th style="background:#f7f8fa;border:1px solid #e5e7eb;padding:8px 12px;text-align:left;font-weight:700;">Languages</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;font-weight:700;color:#1d4ed8;">Polaris (Black Duck)</td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><span class="badge badge-sast">SAST + SCA</span></td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Issues tab → Export → Excel / CSV</td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Java, C#, JS, Python, Go, C/C++, Ruby, PHP</td>
+            </tr>
+            <tr style="background:#fafafa;">
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;font-weight:700;color:#1d4ed8;">SonarQube / SonarCloud</td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><span class="badge badge-sast">SAST</span></td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Issues → Export CSV → rename columns to match</td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;">30+ languages</td>
+            </tr>
+            <tr>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;font-weight:700;color:#1d4ed8;">Veracode</td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><span class="badge badge-sast">SAST + SCA</span></td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Results → Export Findings → Excel</td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Java, .NET, JS, Python, PHP, Go</td>
+            </tr>
+            <tr style="background:#fafafa;">
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;font-weight:700;color:#1d4ed8;">Checkmarx (CxSAST / One)</td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><span class="badge badge-sast">SAST</span></td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Scan Results → Export → Excel</td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Java, C#, JS, Python, Go, C/C++</td>
+            </tr>
+            <tr>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;font-weight:700;color:#1d4ed8;">Snyk</td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><span class="badge badge-sca">SCA</span></td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Reports → Export CSV</td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;">All package managers (npm, Maven, pip, Go modules)</td>
+            </tr>
+            <tr style="background:#fafafa;">
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;font-weight:700;color:#1d4ed8;">GitHub Advanced Security</td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><span class="badge badge-sast">SAST + SCA</span></td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Security tab → Code scanning alerts → Export CSV</td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;">JS, Python, Java, C#, Go, Ruby, C/C++</td>
+            </tr>
+            <tr>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;font-weight:700;color:#1d4ed8;">OWASP Dependency-Check</td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><span class="badge badge-sca">SCA</span></td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><code>--format CSV</code> flag on CLI</td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Java, .NET, JS, Python, Ruby</td>
+            </tr>
+            <tr style="background:#fafafa;">
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;font-weight:700;color:#1d4ed8;">Trivy / Grype</td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><span class="badge badge-sca">SCA + IaC</span></td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><code>--format table --output results.csv</code></td>
+              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Containers, IaC, all package managers</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="font-size:11px;color:#57606a;margin-top:6px;">
+          * Column names vary by tool. The dashboard auto-maps common variants. For tools not listed, export to CSV and rename columns to: <code>Application, Project, Issue Type, Severity, CWE ID, Location</code>.
+        </p>
+
+      </div>
+    </div>
+
+  </div><!-- /dashboard -->
+
+  <div class="footer">
+    <p>Made with IBM Bob &nbsp;|&nbsp; Security Champion Dashboard &nbsp;|&nbsp; Powered by Polaris Remediation MCP &nbsp;|&nbsp; IBM ICA Integration</p>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ── State ─────────────────────────────────────────────
+let uploadedFileText  = '';
+let uploadedFileName  = '';
+
+function showToast(msg) {
+  const t = document.getElementById('clipToast');
+  if (!t) return;
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+</script>
+
+<script>
+// ════════════════════════════════════════════════════
+//  CWE_KB — used only by the remediation renderer
+// ════════════════════════════════════════════════════
+const CWE_KB = {
+  '476': { name: 'NULL Pointer Dereference', risk: 'HIGH', owasp: 'A06:2021',
+    desc: 'The application dereferences a pointer that it expects to be valid but is NULL, typically causing a crash or exit.',
+    impact: 'Denial of service (application crash), potential information exposure via crash dumps, and in some cases exploitable memory corruption.',
+    fix: `**Fix — always check for null before use:**\n\`\`\`java\n// BAD\nString value = getUser().getName(); // getUser() may return null\n\n// GOOD\nUser user = getUser();\nif (user != null) {\n    String value = user.getName();\n}\n\n// GOOD — Java Optional\nString value = Optional.ofNullable(getUser())\n    .map(User::getName)\n    .orElse("unknown");\n\`\`\`\n\n**Best practices:**\n- Use @NonNull / @Nullable annotations and static analysis (SpotBugs, SonarQube).\n- Prefer Optional<T> over nullable returns in Java 8+.\n- Set up null-safety checks in Kotlin (?.) or use Objects.requireNonNull().\n- Add unit tests for null boundary conditions.` },
+  '563': { name: 'Assignment to Variable Without Use', risk: 'LOW', owasp: 'A04:2021',
+    desc: 'The variable\'s value is assigned but the variable is never used afterwards, which may indicate a logic error or dead code.',
+    impact: 'Code quality issue — may mask logic errors, cause unexpected behaviour, or waste memory. Low direct security risk.',
+    fix: '**Fix:** Remove the unused assignment or correct the logic to use the assigned value. Enable compiler warnings (`-Xlint:all` in Java). Use IDE inspections or SonarQube to catch these automatically.' },
+  '570': { name: 'Expression is Always False', risk: 'LOW', owasp: 'A04:2021',
+    desc: 'The software contains an expression that will always evaluate to false.',
+    impact: 'Dead code paths that may hide security controls — e.g. an always-false security check that was intended to restrict access.',
+    fix: '**Fix:** Review the logic condition — it is likely a programming mistake. Use static analysis tools to detect unreachable branches. Pay special attention if the dead code is inside an access-control or authentication check.' },
+  '571': { name: 'Expression is Always True', risk: 'LOW', owasp: 'A04:2021',
+    desc: 'The software contains an expression that will always evaluate to true.',
+    impact: 'May bypass security checks if the always-true condition is guarding privileged operations.',
+    fix: '**Fix:** Review the condition — confirm it expresses the intended logic. If the condition guards a security check, it must be corrected immediately. Enable SAST rules for tautology detection.' },
+  '798': { name: 'Use of Hard-coded Credentials', risk: 'CRITICAL', owasp: 'A07:2021',
+    desc: 'The software contains hard-coded credentials such as a password or cryptographic key.',
+    impact: 'An attacker who accesses the source code or binary can extract credentials and gain full access to affected systems.',
+    fix: `**Immediate actions:**\n- Remove all hard-coded credentials from source code immediately.\n- Rotate any exposed secrets — assume they are compromised.\n\n**Secure alternatives:**\n\`\`\`java\n// BAD\nString password = "mysecret123";\n\n// GOOD — environment variable\nString password = System.getenv("DB_PASSWORD");\n\n// GOOD — secrets manager\nString password = SecretsManagerClient.getSecret("prod/db/password");\n\`\`\`\n\n**Best practices:**\n- Store secrets in Vault, AWS Secrets Manager, or Azure Key Vault.\n- Add pre-commit hooks (git-secrets, trufflehog) to block accidental commits.\n- Scan every CI/CD push with SAST.` },
+  '89': { name: 'SQL Injection', risk: 'CRITICAL', owasp: 'A03:2021',
+    desc: 'The software constructs SQL commands using externally-influenced input without neutralising special elements.',
+    impact: 'Complete database compromise — data exfiltration, authentication bypass, data deletion, and in some configurations RCE.',
+    fix: `**Fix — parameterised queries:**\n\`\`\`java\n// BAD\nString q = "SELECT * FROM users WHERE name='" + input + "'";\n\n// GOOD\nPreparedStatement ps = conn.prepareStatement(\n    "SELECT * FROM users WHERE name = ?");\nps.setString(1, input);\n\`\`\`\n\n**Additional layers:**\n- Use an ORM (Hibernate, JPA) which parameterises by default.\n- Principle of least privilege on the DB account.\n- Enable WAF rules for SQLi patterns.` },
+  '79': { name: 'Cross-site Scripting (XSS)', risk: 'HIGH', owasp: 'A03:2021',
+    desc: 'The software does not neutralise user-controllable input before placing it in a web page served to other users.',
+    impact: 'Session hijacking, credential theft, malware distribution, defacement.',
+    fix: `**Fix — output encoding:**\n\`\`\`javascript\n// BAD\ndiv.innerHTML = userInput;\n\n// GOOD\ndiv.textContent = userInput;\n\`\`\`\n\n**Additional layers:**\n- Implement Content-Security-Policy (CSP) header.\n- Sanitise HTML server-side with DOMPurify.\n- Use frameworks (React, Angular) that encode by default.` },
+  '22': { name: 'Path Traversal', risk: 'HIGH', owasp: 'A01:2021',
+    desc: 'The software uses external input to construct a file path without neutralising "../" sequences.',
+    impact: 'Unauthorised read or write of arbitrary files including config files, source code, and credentials.',
+    fix: `**Fix — canonicalise paths:**\n\`\`\`java\n// GOOD\nFile f = new File(baseDir, userInput).getCanonicalFile();\nif (!f.getPath().startsWith(new File(baseDir).getCanonicalPath())) {\n    throw new SecurityException("Path traversal detected");\n}\n\`\`\`\n\n**Additional layers:**\n- Use an allowlist of permitted filenames.\n- Run with minimal filesystem permissions.` },
+  '611': { name: 'XXE — XML External Entity Injection', risk: 'HIGH', owasp: 'A05:2021',
+    desc: 'The software processes XML that can contain external entity URIs, causing unintended document embedding.',
+    impact: 'SSRF, local file disclosure, denial of service (Billion Laughs).',
+    fix: `**Fix — disable external entities:**\n\`\`\`java\nSAXParserFactory spf = SAXParserFactory.newInstance();\nspf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);\nspf.setFeature("http://xml.org/sax/features/external-general-entities", false);\n\`\`\`` },
+  '862': { name: 'Missing Authorisation', risk: 'HIGH', owasp: 'A01:2021',
+    desc: 'The software does not perform an authorisation check when an actor attempts to access a resource.',
+    impact: 'Privilege escalation, access to other users\' data, administrative function exposure.',
+    fix: '**Fix:** Apply authorisation checks on every sensitive endpoint. Use Spring Security, OPA, or similar policy enforcement. Never rely on UI-only controls.' },
+  '200': { name: 'Exposure of Sensitive Information', risk: 'MEDIUM', owasp: 'A02:2021',
+    desc: 'The product exposes sensitive information to actors not authorised to access it.',
+    impact: 'Disclosure of PII, credentials, internal paths, stack traces.',
+    fix: '**Fix:** Suppress verbose error messages in production. Return generic error responses. Log details server-side only. Audit all API responses for unintended leakage.' },
+  '502': { name: 'Deserialization of Untrusted Data', risk: 'CRITICAL', owasp: 'A08:2021',
+    desc: 'The application deserialises data from an untrusted source without sufficient verification.',
+    impact: 'Remote code execution, denial of service, authentication bypass.',
+    fix: '**Fix:** Never deserialise untrusted data. If unavoidable, use a serialisation allowlist and HMAC integrity checking.' },
+  '190': { name: 'Integer Overflow or Wraparound', risk: 'HIGH', owasp: 'A06:2021',
+    desc: 'The software performs a calculation that can produce an integer overflow or wraparound.',
+    impact: 'Buffer overflows, incorrect logic execution, potential remote code execution.',
+    fix: `**Fix:**\n\`\`\`java\n// Use Math.addExact() which throws ArithmeticException on overflow\nint result = Math.addExact(a, b);\n// Or use long/BigInteger for large values\nlong result = (long) a + b;\n\`\`\`` },
+  '400': { name: 'Uncontrolled Resource Consumption', risk: 'HIGH', owasp: 'A05:2021',
+    desc: 'The software does not properly restrict the amount of resources that can be consumed by an actor.',
+    impact: 'Denial of service — attackers can exhaust CPU, memory, disk, or threads.',
+    fix: '**Fix:** Impose rate limits, request size limits, and timeouts on all external inputs. Use circuit breakers (Resilience4j, Hystrix). Reject oversized inputs early.' },
+  '404': { name: 'Improper Resource Shutdown or Release', risk: 'MEDIUM', owasp: 'A06:2021',
+    desc: 'The software does not properly release a resource when finished.',
+    impact: 'Resource exhaustion (file handles, DB connections, sockets), leading to denial of service.',
+    fix: `**Fix — use try-with-resources:**\n\`\`\`java\n// GOOD\ntry (Connection conn = dataSource.getConnection();\n     PreparedStatement ps = conn.prepareStatement(sql)) {\n    // use resources\n} // auto-closed\n\`\`\`` },
+  '732': { name: 'Incorrect Permission Assignment for Critical Resource', risk: 'HIGH', owasp: 'A01:2021',
+    desc: 'The software specifies permissions for a security-critical resource in a way that allows unintended actors to read or modify it.',
+    impact: 'Unauthorised access to sensitive files, configs, or credentials.',
+    fix: '**Fix:** Apply principle of least privilege. Set file permissions to owner-only (chmod 600) for sensitive files. Audit all resource permissions in deployment pipelines.' },
+  '326': { name: 'Inadequate Encryption Strength', risk: 'HIGH', owasp: 'A02:2021',
+    desc: 'The software stores or transmits sensitive data using an encryption scheme that is theoretically sound but is not strong enough.',
+    impact: 'Data can be decrypted by attackers with sufficient resources.',
+    fix: `**Fix:**\n\`\`\`java\n// BAD — weak\nCipher c = Cipher.getInstance("DES");\n\n// GOOD — strong\nCipher c = Cipher.getInstance("AES/GCM/NoPadding");\n\`\`\`\nUse AES-256, RSA-2048+, and TLS 1.2+ minimum.` },
+  '327': { name: 'Use of a Broken or Risky Cryptographic Algorithm', risk: 'HIGH', owasp: 'A02:2021',
+    desc: 'The software uses a broken or risky cryptographic algorithm such as MD5, SHA-1, or DES.',
+    impact: 'Cryptographic protection can be bypassed by attackers with moderate resources.',
+    fix: '**Fix:** Replace MD5/SHA-1 with SHA-256 or SHA-3. Replace DES/3DES with AES-256-GCM. Replace RSA-1024 with RSA-2048+. Use Argon2/bcrypt for password hashing.' },
+  '601': { name: 'URL Redirection to Untrusted Site (Open Redirect)', risk: 'MEDIUM', owasp: 'A01:2021',
+    desc: 'The web application accepts a user-controlled input that specifies a link and does not validate this link before redirecting users.',
+    impact: 'Phishing attacks, credential theft via redirect to malicious sites.',
+    fix: '**Fix:** Only allow redirects to a whitelist of trusted domains. Never redirect to user-supplied URLs directly. Validate against a strict allowlist server-side.' },
+  '918': { name: 'Server-Side Request Forgery (SSRF)', risk: 'CRITICAL', owasp: 'A10:2021',
+    desc: 'The server fetches a remote resource using a URL supplied by the user without adequate validation.',
+    impact: 'Access to internal services, cloud metadata endpoints (AWS 169.254.169.254), and internal network scanning.',
+    fix: '**Fix:** Validate and whitelist allowed URL schemes and hosts. Block requests to private IP ranges (10.x, 172.16.x, 192.168.x, 169.254.x). Use a DNS allowlist.' },
+};
+
+</script>
+
+<script>
+// ════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════
+let allFindings = [];
+let filteredFindings = [];
+
+// ════════════════════════════════════════════════════
+//  UPLOAD & PARSE
+// ════════════════════════════════════════════════════
+const uploadZone = document.getElementById('uploadZone');
+const fileInput  = document.getElementById('fileInput');
+
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) processFile(f);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
+
+function processFile(file) {
+  document.getElementById('uploadSection').style.display = 'none';
+  document.getElementById('processing').classList.add('active');
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: null, raw: false });
+      allFindings = normalise(rows);
+      document.getElementById('fileInfo').textContent =
+        `📁 ${file.name}  ·  ${allFindings.length} findings loaded  ·  ${wb.SheetNames[0]}`;
+      // Feed the raw row text into the AI engine
+      uploadedFileName = file.name;
+      uploadedFileText = rows.map((r, i) =>
+        'Row ' + (i+1) + ': ' + Object.entries(r).map(([k,v]) => k + '=' + v).join(' | ')
+      ).join('\n');
+      setTimeout(() => {
+        document.getElementById('processing').classList.remove('active');
+        renderDashboard();
+        document.getElementById('dashboard').classList.add('active');
+      }, 400);
+    } catch(err) {
+      alert('Error reading file: ' + err.message);
+      resetDashboard();
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ════════════════════════════════════════════════════
+//  NORMALISE — map any column name variant to a standard key
+// ════════════════════════════════════════════════════
+const COL_MAP = {
+  application: ['application','app'],
+  project: ['project'],
+  issue_type: ['issue type','issuetype','issue_type','type'],
+  risk_score: ['risk score','risk_score','riskscore','score'],
+  severity: ['severity','sev'],
+  test_type: ['test type','test_type','testtype','scan type','scantype'],
+  cwe_id: ['cwe id','cwe_id','cweid','cwe'],
+  vuln_id: ['vulnerability id','vulnerability_id','vulnid','vuln id','id'],
+  location: ['location','file','filepath','file path'],
+  cisa_kev: ['cisa kev','cisa_kev','kev'],
+  fix_by: ['fix by','fix_by','fixby','due date','duedate'],
+  fix_by_status: ['fix by status','fix_by_status'],
+  triage_status: ['triage status','triage_status','triaged'],
+  owner: ['owner','assigned to'],
+  detected: ['first detected date','first_detected_date','detected','date'],
+  link: ['link','url','issue link']
+};
+
+function findCol(headers, keys) {
+  const h = headers.map(x => (x || '').toString().toLowerCase().trim());
+  for (const k of keys) { const i = h.indexOf(k); if (i >= 0) return headers[i]; }
+  return null;
+}
+
+function extractLink(val) {
+  if (!val) return '';
+  const m = String(val).match(/href=["']([^"']+)["']/);
+  return m ? m[1] : String(val).startsWith('http') ? val : '';
+}
+
+function normalise(rows) {
+  if (!rows.length) return [];
+  const headers = Object.keys(rows[0]);
+  const cols = {};
+  for (const [key, aliases] of Object.entries(COL_MAP)) { cols[key] = findCol(headers, aliases); }
+  return rows.map((r, i) => ({
+    _idx: i + 1,
+    application:  r[cols.application]  || '',
+    project:      r[cols.project]       || '',
+    issue_type:   r[cols.issue_type]    || '',
+    risk_score:   r[cols.risk_score]    || '',
+    severity:     (r[cols.severity]     || '').toLowerCase(),
+    test_type:    r[cols.test_type]     || '',
+    cwe_id:       r[cols.cwe_id]        || '',
+    vuln_id:      r[cols.vuln_id]       || '',
+    location:     r[cols.location]      || '',
+    cisa_kev:     r[cols.cisa_kev]      || '',
+    fix_by:       r[cols.fix_by]        || '',
+    fix_by_status:r[cols.fix_by_status] || '',
+    triage_status:r[cols.triage_status] || '',
+    owner:        r[cols.owner]         || '',
+    detected:     r[cols.detected]      || '',
+    link:         extractLink(r[cols.link])
+  }));
+}
+
+// ════════════════════════════════════════════════════
+//  RENDER DASHBOARD
+// ════════════════════════════════════════════════════
+function renderDashboard() {
+  filteredFindings = [...allFindings];
+  populateFilters();
+  renderKPIs();
+  renderCharts();
+  renderFindings();
+  renderRemediation();
+  renderEffort();
+  renderPriorityBanner();
+  switchTab('remediation');
+}
+
+// ── KPIs ──
+function renderKPIs() {
+  const total  = allFindings.length;
+  const highs  = allFindings.filter(f => f.severity === 'high' || f.severity === 'critical').length;
+  const cwes   = [...new Set(allFindings.map(f => f.cwe_id).filter(Boolean))].length;
+  const projs  = [...new Set(allFindings.map(f => f.project).filter(Boolean))].length;
+  const files  = [...new Set(allFindings.map(f => f.location.split('/').pop()).filter(Boolean))].length;
+  document.getElementById('kpiGrid').innerHTML = `
+    <div class="kpi-card kpi-red"><div class="kpi-num">${total}</div><div class="kpi-label">Total Findings</div><div class="kpi-hint">All vulnerabilities found</div></div>
+    <div class="kpi-card kpi-orange"><div class="kpi-num">${highs}</div><div class="kpi-label">Critical / High</div><div class="kpi-hint">Fix these first — urgent</div></div>
+    <div class="kpi-card kpi-blue"><div class="kpi-num">${cwes}</div><div class="kpi-label">Vulnerability Types</div><div class="kpi-hint">Distinct CWE categories</div></div>
+    <div class="kpi-card kpi-purple"><div class="kpi-num">${projs}</div><div class="kpi-label">Affected Projects</div><div class="kpi-hint">Teams that need to act</div></div>
+    <div class="kpi-card kpi-green"><div class="kpi-num">${files}</div><div class="kpi-label">Affected Files</div><div class="kpi-hint">Files needing code changes</div></div>`;
+}
+
+// ── PRIORITY BANNER ──
+function renderPriorityBanner() {
+  const cweCounts = {};
+  const cweHighest = {};
+  allFindings.forEach(f => {
+    if (!f.cwe_id) return;
+    cweCounts[f.cwe_id] = (cweCounts[f.cwe_id]||0)+1;
+    const sev = f.severity;
+    if (!cweHighest[f.cwe_id] || sev === 'critical' || (sev === 'high' && cweHighest[f.cwe_id] !== 'critical'))
+      cweHighest[f.cwe_id] = sev;
+  });
+  const top3 = Object.entries(cweCounts).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  if (!top3.length) return;
+  const ranks = ['Fix Now', 'Fix Next', 'Fix Soon'];
+  const colors = ['#b91c1c','#c2410c','#1d4ed8'];
+  document.getElementById('priorityList').innerHTML = top3.map(([cwe, count], i) => {
+    const r = getRemediation(cwe);
+    return `<div class="priority-item">
+      <div class="p-rank" style="color:${colors[i]}">${ranks[i]}</div>
+      <div class="p-cwe">${cwe} — ${r.title}</div>
+      <div class="p-count">${count} finding${count>1?'s':''} &nbsp;·&nbsp; ${r.effort} to fix</div>
+      <div class="p-count" style="margin-top:4px;color:#374151;">${r.sprint}</div>
+      <div class="p-action" onclick="switchTab('remediation');setTimeout(()=>{document.getElementById('rem-${cwe.replace('-','')}')?.scrollIntoView({behavior:'smooth'})},100)">See how to fix &rarr;</div>
+    </div>`;
+  }).join('');
+  document.getElementById('priorityBanner').style.display = 'block';
+}
+
+// ── CHARTS ──
+function renderCharts() {
+  // By CWE
+  const cweCounts = {};
+  allFindings.forEach(f => { if (f.cwe_id) cweCounts[f.cwe_id] = (cweCounts[f.cwe_id]||0)+1; });
+  const cweTop = Object.entries(cweCounts).sort((a,b) => b[1]-a[1]).slice(0,8);
+  const maxCwe = cweTop[0]?.[1] || 1;
+
+  // By Project
+  const projCounts = {};
+  allFindings.forEach(f => { if (f.project) projCounts[f.project] = (projCounts[f.project]||0)+1; });
+  const projTop = Object.entries(projCounts).sort((a,b) => b[1]-a[1]).slice(0,8);
+  const maxProj = projTop[0]?.[1] || 1;
+
+  const COLORS = ['#3b82d4','#7c5cd8','#c2410c','#166534','#1d4ed8','#b91c1c','#0891b2','#65a30d'];
+
+  document.getElementById('chartRow').innerHTML = `
+    <div class="chart-card">
+      <h4>Findings by CWE</h4>
+      ${cweTop.map(([k,v],i) => `
+        <div class="bar-row">
+          <div class="bar-label" title="${k}">${k}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/maxCwe*100)}%;background:${COLORS[i%COLORS.length]};"></div></div>
+          <div class="bar-count">${v}</div>
+        </div>`).join('')}
+    </div>
+    <div class="chart-card">
+      <h4>Findings by Project</h4>
+      ${projTop.map(([k,v],i) => `
+        <div class="bar-row">
+          <div class="bar-label" title="${k}">${k}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/maxProj*100)}%;background:${COLORS[i%COLORS.length]};"></div></div>
+          <div class="bar-count">${v}</div>
+        </div>`).join('')}
+    </div>`;
+}
+
+// ── FILTERS ──
+function populateFilters() {
+  const cwes  = ['', ...[...new Set(allFindings.map(f=>f.cwe_id).filter(Boolean))].sort()];
+  const projs = ['', ...[...new Set(allFindings.map(f=>f.project).filter(Boolean))].sort()];
+  const tests = ['', ...[...new Set(allFindings.map(f=>f.test_type).filter(Boolean))].sort()];
+  const sel = (id, vals) => {
+    const el = document.getElementById(id);
+    el.innerHTML = vals.map(v => `<option value="${v}">${v||'All'}</option>`).join('');
+  };
+  sel('fCwe', cwes); sel('fProject', projs); sel('fTestType', tests);
+}
+
+function applyFilters() {
+  const sev  = document.getElementById('fSeverity').value.toLowerCase();
+  const cwe  = document.getElementById('fCwe').value;
+  const proj = document.getElementById('fProject').value;
+  const tt   = document.getElementById('fTestType').value;
+  const q    = document.getElementById('fSearch').value.toLowerCase();
+  filteredFindings = allFindings.filter(f =>
+    (!sev  || f.severity === sev) &&
+    (!cwe  || f.cwe_id === cwe) &&
+    (!proj || f.project === proj) &&
+    (!tt   || f.test_type === tt) &&
+    (!q    || f.location.toLowerCase().includes(q) || f.issue_type.toLowerCase().includes(q) || f.project.toLowerCase().includes(q))
+  );
+  document.getElementById('filterCount').textContent = `Showing ${filteredFindings.length} of ${allFindings.length}`;
+  renderFindings();
+}
+
+function clearFilters() {
+  ['fSeverity','fCwe','fProject','fTestType'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('fSearch').value = '';
+  applyFilters();
+}
+
+// ── FINDINGS TABLE ──
+function sevBadge(s) {
+  const cls = s==='high'||s==='critical' ? 'badge-high' : s==='medium' ? 'badge-medium' : 'badge-low';
+  return `<span class="badge ${cls}">${s||'—'}</span>`;
+}
+function testBadge(t) {
+  return `<span class="badge ${t==='SAST'?'badge-sast':'badge-sca'}">${t||'—'}</span>`;
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return String(d).slice(0,10);
+}
+
+function renderFindings() {
+  const tbody = document.getElementById('findingsBody');
+  if (!filteredFindings.length) {
+    tbody.innerHTML = `<tr><td colspan="11" class="empty-state">No findings match the current filters.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filteredFindings.map((f,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${f.application||'—'}</td>
+      <td style="max-width:140px;word-break:break-word;">${f.project||'—'}</td>
+      <td style="max-width:160px;word-break:break-word;">${f.issue_type||'—'}</td>
+      <td>${sevBadge(f.severity)}</td>
+      <td>${testBadge(f.test_type)}</td>
+      <td><span class="badge badge-cwe">${f.cwe_id||'—'}</span></td>
+      <td class="mono" style="max-width:200px;">${(f.location.split('/').pop())||f.location||'—'}<br><span style="color:#94a3b8;font-size:10px;">${f.location}</span></td>
+      <td class="mono">${fmtDate(f.detected)}</td>
+      <td><span class="badge ${f.triage_status==='Not Triaged'?'badge-high':'badge-ok'}">${f.triage_status||'—'}</span></td>
+      <td>${f.link ? `<a href="${f.link}" target="_blank">View</a>` : '—'}</td>
+    </tr>`).join('');
+}
+
+// ════════════════════════════════════════════════════
+//  CWE REMEDIATION LIBRARY
+// ════════════════════════════════════════════════════
+const CWE_LIBRARY = {
+  'CWE-404': {
+    title: 'Improper Resource Shutdown or Release',
+    tech: 'C# / .NET / WPF',
+    what: 'Objects implementing <code>IDisposable</code> (SqlConnection, FileStream, Graphics, Bitmap, etc.) are allocated but never disposed, or disposal is bypassed when exceptions occur.',
+    impact: 'Resource exhaustion → Denial of Service (DoS). Handle leaks can destabilise the application, cause OutOfMemoryException crashes, and deny service to other users.',
+    effort: '4–8 hrs (batch fix across all files)',
+    risk: 'Low — additive <code>using</code> blocks, no logic change',
+    sprint: 'Current Sprint',
+    steps: [
+      'Identify all <code>IDisposable</code> allocations in each flagged file.',
+      'Wrap every local disposable in a <code>using</code> statement or C# 8+ <code>using</code> declaration.',
+      'For disposable class fields in partial classes: implement the full <code>IDisposable</code> pattern.',
+      'Check event handler subscriptions — unsubscribe in <code>Dispose()</code> or <code>Unloaded</code>.',
+      'For async code use <code>await using</code> to ensure disposal in async flows.',
+      'Re-trigger Polaris SAST scan — all findings in this group should clear simultaneously.'
+    ],
+    vuln: `// BAD: handle leaks if exception occurs before Close()
+SqlConnection conn = new SqlConnection(connStr);
+conn.Open();
+SqlCommand cmd = new SqlCommand(sql, conn);
+SqlDataReader reader = cmd.ExecuteReader();
+// ... exception here = connection leak ...
+reader.Close();  // may be skipped
+conn.Close();    // may be skipped`,
+    fix: `// GOOD: using guarantees disposal on all code paths
+using (var conn = new SqlConnection(connStr))
+{
+    conn.Open();
+    using (var cmd = new SqlCommand(sql, conn))
+    using (var reader = cmd.ExecuteReader())
+    {
+        while (reader.Read()) { /* process */ }
+    }
+}
+
+// C# 8+ using declaration
+using var conn2 = new SqlConnection(connStr);
+await conn2.OpenAsync();`
+  },
+  'CWE-284': {
+    title: 'Improper Access Control',
+    tech: 'Jenkins / Kubernetes YAML',
+    what: 'Jenkins agent pod specs have excessive privileges (<code>privileged: true</code>), missing security contexts, or insufficient RBAC scoping — allowing any pipeline to run on any agent tier.',
+    impact: 'An attacker who compromises a build job can pivot across environments (DEV → QA → PRD), exfiltrate secrets, or escalate privileges via an over-permissioned agent.',
+    effort: '2–4 hrs per YAML file',
+    risk: 'Medium — infrastructure/platform change, requires testing in DEV first',
+    sprint: 'Current Sprint',
+    steps: [
+      'Review all YAML files for <code>privileged: true</code>, missing <code>runAsNonRoot</code>, and use of the <code>default</code> service account.',
+      'Set <code>runAsNonRoot: true</code> and define a non-root <code>runAsUser</code> UID.',
+      'Add <code>allowPrivilegeEscalation: false</code> and <code>capabilities: { drop: ["ALL"] }</code>.',
+      'Create dedicated Kubernetes service accounts per environment with scoped RBAC.',
+      'Use environment-specific agent labels and enforce pipeline isolation.',
+      'Enable Jenkins Role Strategy plugin to restrict which jobs can use each agent.'
+    ],
+    vuln: `# BAD — root, privileged, default service account
+spec:
+  serviceAccountName: default
+  containers:
+    - name: jnlp
+      image: jenkins/inbound-agent:latest
+      securityContext:
+        privileged: true`,
+    fix: `# GOOD — non-root, non-privileged, scoped RBAC
+spec:
+  serviceAccountName: jenkins-agent-prd-sa
+  automountServiceAccountToken: false
+  containers:
+    - name: jnlp
+      image: jenkins/inbound-agent:3256.v88a_f6e922152-1
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+  nodeSelector:
+    env: prd`
+  },
+  'CWE-89': {
+    title: 'SQL Injection',
+    tech: 'Any / Database',
+    what: 'User-controlled input is concatenated directly into SQL queries without parameterisation.',
+    impact: 'Complete database compromise — data exfiltration, modification, deletion, and potential server takeover.',
+    effort: '2–4 hrs per occurrence',
+    risk: 'Low — parameterised queries are a drop-in replacement',
+    sprint: 'Immediate / Current Sprint',
+    steps: [
+      'Locate every dynamic SQL string construction using user input.',
+      'Replace string concatenation with parameterised queries (<code>SqlCommand.Parameters</code>) or an ORM.',
+      'Use stored procedures with parameter binding for complex queries.',
+      'Validate and whitelist all user inputs at the controller/service boundary.',
+      'Enable SQL query logging to detect injection attempts in production.'
+    ],
+    vuln: `// BAD: SQL Injection risk
+string sql = "SELECT * FROM Users WHERE name = '" + userName + "'";
+var cmd = new SqlCommand(sql, conn);`,
+    fix: `// GOOD: Parameterised query
+string sql = "SELECT * FROM Users WHERE name = @name";
+using var cmd = new SqlCommand(sql, conn);
+cmd.Parameters.AddWithValue("@name", userName);`
+  },
+  'CWE-79': {
+    title: 'Cross-Site Scripting (XSS)',
+    tech: 'Web / JavaScript / HTML',
+    what: 'User-supplied data is rendered in the browser without proper encoding, allowing script injection.',
+    impact: 'Session hijacking, credential theft, defacement, malware distribution.',
+    effort: '1–2 hrs per occurrence',
+    risk: 'Low — output encoding is non-breaking',
+    sprint: 'Current Sprint',
+    steps: [
+      'Identify all locations where user data is rendered in HTML output.',
+      'Apply context-aware output encoding (HTML, attribute, JavaScript, URL).',
+      'Use a templating engine that auto-escapes by default (Razor, Thymeleaf, etc.).',
+      'Implement a strict Content-Security-Policy (CSP) header.',
+      'Validate and sanitise rich-text input using an allowlist-based library (DOMPurify).'
+    ],
+    vuln: `// BAD: Direct output of user input
+document.getElementById('name').innerHTML = userInput;`,
+    fix: `// GOOD: Use textContent (auto-escapes HTML)
+document.getElementById('name').textContent = userInput;
+// Or for server-side: @Html.Encode(userInput) in Razor`
+  },
+  'CWE-22': {
+    title: 'Path Traversal',
+    tech: 'File System',
+    what: 'User-controlled input is used to construct file paths without validation, allowing traversal outside the intended directory.',
+    impact: 'Arbitrary file read/write, configuration file exposure, code execution.',
+    effort: '2–3 hrs per occurrence',
+    risk: 'Low',
+    sprint: 'Current Sprint',
+    steps: [
+      'Canonicalise all file paths using <code>Path.GetFullPath()</code>.',
+      'Verify the resolved path starts with the expected base directory.',
+      'Use an allowlist of permitted file names/extensions.',
+      'Never pass raw user input directly to file system APIs.'
+    ],
+    vuln: `// BAD: Path traversal possible
+string path = baseDir + userInput;
+var content = File.ReadAllText(path);`,
+    fix: `// GOOD: Canonicalise and validate
+string path = Path.GetFullPath(Path.Combine(baseDir, userInput));
+if (!path.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase))
+    throw new UnauthorizedAccessException();
+var content = File.ReadAllText(path);`
+  },
+  'CWE-798': {
+    title: 'Use of Hard-coded Credentials',
+    tech: 'Any',
+    what: 'Credentials, API keys, or secrets are embedded directly in source code.',
+    impact: 'If the repository is exposed, credentials are immediately compromised and can be used to access production systems.',
+    effort: '1–2 hrs per occurrence + secrets rotation',
+    risk: 'Low — externalization only, no logic change',
+    sprint: 'Immediate',
+    steps: [
+      'Remove all hard-coded secrets from source code immediately.',
+      'Rotate every compromised credential — assume it has been exfiltrated.',
+      'Store secrets in a secrets manager (Azure Key Vault, HashiCorp Vault, AWS Secrets Manager).',
+      'Inject secrets at runtime via environment variables or managed identity.',
+      'Add a pre-commit hook (e.g., git-secrets, truffleHog) to prevent future commits.'
+    ],
+    vuln: `// BAD: Hard-coded credential
+string apiKey = "sk-prod-abc123xyz789";`,
+    fix: `// GOOD: Read from environment / secrets manager
+string apiKey = Environment.GetEnvironmentVariable("API_KEY")
+    ?? throw new InvalidOperationException("API_KEY not set");`
+  }
+};
+
+function getRemediation(cwe) {
+  if (CWE_LIBRARY[cwe]) return CWE_LIBRARY[cwe];
+  return {
+    title: 'Security Vulnerability',
+    tech: 'General',
+    what: `This finding maps to <strong>${cwe}</strong>. Review the Polaris issue link for the exact taint path and flagged code.`,
+    impact: 'Severity reported as HIGH — prioritise within the current sprint.',
+    effort: '2–6 hrs',
+    risk: 'Medium',
+    sprint: 'Current Sprint',
+    steps: [
+      'Open the flagged file and locate the exact line(s) referenced in the finding.',
+      'Trace the data flow: identify where the input originates.',
+      'Check whether input is validated, sanitised, or encoded before use.',
+      'Apply the principle of least privilege to the affected component.',
+      'Re-run the Polaris scan after the fix to confirm resolution.'
+    ],
+    vuln: '// See Polaris issue link for the exact vulnerable snippet.',
+    fix: '// Apply input validation, output encoding, and safe API equivalents.'
+  };
+}
+
+// ── REMEDIATION CARDS ──
+function copyCode(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function renderRemediation() {
+  const cweCounts = {};
+  const cweFiles  = {};
+  allFindings.forEach(f => {
+    if (!f.cwe_id) return;
+    cweCounts[f.cwe_id] = (cweCounts[f.cwe_id]||0)+1;
+    if (!cweFiles[f.cwe_id]) cweFiles[f.cwe_id] = new Set();
+    cweFiles[f.cwe_id].add(f.location.split('/').pop());
+  });
+
+  const html = Object.entries(cweCounts).sort((a,b)=>b[1]-a[1]).map(([cwe, count]) => {
+    const r = getRemediation(cwe);
+    const fixId = 'fix-'+cwe.replace(/\W/g,'');
+    const vulnId = 'vuln-'+cwe.replace(/\W/g,'');
+    return `
+    <div class="rem-card" id="rem-${cwe.replace('-','')}">
+      <div class="rem-card-hdr">
+        <span class="badge badge-cwe">${cwe}</span>
+        <span class="cwe-label">${r.title}</span>
+        <span class="count">${count} finding${count>1?'s':''}</span>
+        <span style="margin-left:auto;font-size:12px;color:#57606a;">${r.tech}</span>
+      </div>
+      <div class="rem-card-body">
+        <p><strong>What is it?</strong> ${r.what}</p>
+        <p><strong>Why it is dangerous:</strong> ${r.impact}</p>
+        <p><strong>Affected files:</strong> <code>${[...cweFiles[cwe]].join('</code>, <code>')}</code></p>
+
+        <div class="rem-summary">
+          <div class="rem-summary-item"><div class="rs-label">Time to fix</div><div class="rs-val">${r.effort}</div></div>
+          <div class="rem-summary-item"><div class="rs-label">Change risk</div><div class="rs-val">${r.risk}</div></div>
+          <div class="rem-summary-item"><div class="rs-label">When to fix</div><div class="rs-val">${r.sprint}</div></div>
+        </div>
+
+        <div class="steps">
+          <strong style="font-size:13px;">Step-by-step fix instructions:</strong>
+          ${r.steps.map((s,i) => `
+            <div class="step">
+              <div class="sn">${i+1}</div>
+              <p>${s}</p>
+            </div>`).join('')}
+        </div>
+
+        <div class="code-label">
+          <span style="color:#b91c1c;">BAD — Vulnerable Code Pattern</span>
+          <button class="btn-copy" onclick="copyCode(this, document.getElementById('${vulnId}').textContent)">Copy</button>
+        </div>
+        <div class="code-block vuln" id="${vulnId}">${escHtml(r.vuln)}</div>
+
+        <div class="code-label">
+          <span style="color:#166534;">GOOD — Fixed Code Pattern</span>
+          <button class="btn-copy" onclick="copyCode(this, document.getElementById('${fixId}').textContent)">Copy</button>
+        </div>
+        <div class="code-block fix" id="${fixId}">${escHtml(r.fix)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('remGrid').innerHTML = html || '<div class="empty-state">No CWE data found.</div>';
+}
+
+// ── EFFORT + ACTION PLAN ──
+function renderEffort() {
+  const cweCounts = {};
+  const cweFiles  = {};
+  const cweIssue  = {};
+  allFindings.forEach(f => {
+    if (!f.cwe_id) return;
+    cweCounts[f.cwe_id] = (cweCounts[f.cwe_id]||0)+1;
+    if (!cweFiles[f.cwe_id]) cweFiles[f.cwe_id] = new Set();
+    cweFiles[f.cwe_id].add(f.location.split('/').pop());
+    if (!cweIssue[f.cwe_id]) cweIssue[f.cwe_id] = f.issue_type;
+  });
+
+  document.getElementById('effortBody').innerHTML = Object.entries(cweCounts).sort((a,b)=>b[1]-a[1]).map(([cwe, count]) => {
+    const r = getRemediation(cwe);
+    return `<tr>
+      <td><span class="badge badge-cwe">${cwe}</span> ${cweIssue[cwe]||''}</td>
+      <td><strong>${count}</strong></td>
+      <td>${[...cweFiles[cwe]].length} file(s)</td>
+      <td>${r.effort}</td>
+      <td>${r.risk}</td>
+      <td><span class="badge badge-high">${r.sprint}</span></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('actionBody').innerHTML = allFindings.map((f,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td class="mono" style="max-width:160px;">${f.location.split('/').pop()||f.location}</td>
+      <td><span class="badge badge-cwe">${f.cwe_id||'—'}</span></td>
+      <td>${f.owner||'Assign to file owner'}</td>
+      <td>Apply ${(getRemediation(f.cwe_id)).title} fix</td>
+      <td>Re-scan Polaris + unit test</td>
+      <td>${f.link?`<a href="${f.link}" target="_blank">View</a>`:'—'}</td>
+    </tr>`).join('');
+}
+
+// ════════════════════════════════════════════════════
+//  UTILS
+// ════════════════════════════════════════════════════
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => {
+    const id = t.id.replace('tab-btn-','');
+    t.classList.toggle('active', id === name);
+  });
+  document.querySelectorAll('.tab-pane').forEach(p => {
+    p.classList.toggle('active', p.id === 'tab-'+name);
+  });
+}
+
+function resetDashboard() {
+  allFindings = []; filteredFindings = [];
+  document.getElementById('dashboard').classList.remove('active');
+  document.getElementById('uploadSection').style.display = '';
+  document.getElementById('processing').classList.remove('active');
+  document.getElementById('fileInput').value = '';
+  document.getElementById('priorityBanner').style.display = 'none';
+}
+
+function exportCSV() {
+  const headers = ['#','Application','Project','Issue Type','Severity','Test Type','CWE ID','Vulnerability ID','Location','Triage Status','Owner','Detected','Link'];
+  const rows = filteredFindings.map((f,i) => [
+    i+1, f.application, f.project, f.issue_type, f.severity, f.test_type,
+    f.cwe_id, f.vuln_id, f.location, f.triage_status, f.owner, fmtDate(f.detected), f.link
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(c => `"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'vulnerability-remediation-export.csv'; a.click();
+}
+</script>
+
+</body>
+</html>
