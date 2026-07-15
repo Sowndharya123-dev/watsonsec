@@ -258,7 +258,7 @@
   <div class="upload-section" id="uploadSection">
     <div class="upload-zone" id="uploadZone">
       <div class="upload-icon">📊</div>
-      <h3>Upload Your Polaris Vulnerability Export</h3>
+      <h3>Upload Your Vulnerability Export</h3>
       <p>Drag &amp; drop your <strong>.xlsx</strong> or <strong>.csv</strong> file here, or click to browse.</p>
       <p style="margin-top:6px;font-size:12px;">Expected columns: Application, Project, Issue Type, Severity, Test Type, CWE ID, Location, Link</p>
       <label class="btn-upload">
@@ -266,6 +266,119 @@
         <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
       </label>
     </div>
+
+    <!-- ── SUPPORTED LANGUAGES ── -->
+    <div style="margin-top:28px;">
+      <div style="font-size:13px;font-weight:700;color:#1c2b4a;border-left:3px solid #3b82d4;padding-left:10px;margin-bottom:14px;">
+        Supported Languages
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;">
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+          <div style="font-weight:700;font-size:12px;color:#1d4ed8;margin-bottom:4px;">Java / Kotlin</div>
+          <div style="font-size:11px;color:#57606a;line-height:1.7;">Spring Boot, Maven, Gradle<br>Android, Quarkus</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+          <div style="font-weight:700;font-size:12px;color:#1d4ed8;margin-bottom:4px;">C# / .NET</div>
+          <div style="font-size:11px;color:#57606a;line-height:1.7;">ASP.NET Core, WPF, WinForms<br>.NET 6/7/8, Blazor</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+          <div style="font-weight:700;font-size:12px;color:#1d4ed8;margin-bottom:4px;">JavaScript / TypeScript</div>
+          <div style="font-size:11px;color:#57606a;line-height:1.7;">React, Angular, Vue, Node.js<br>Express, Next.js</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+          <div style="font-weight:700;font-size:12px;color:#1d4ed8;margin-bottom:4px;">Python</div>
+          <div style="font-size:11px;color:#57606a;line-height:1.7;">Django, Flask, FastAPI<br>AWS Lambda, Pandas</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+          <div style="font-weight:700;font-size:12px;color:#1d4ed8;margin-bottom:4px;">Go</div>
+          <div style="font-size:11px;color:#57606a;line-height:1.7;">Gin, Echo, gRPC<br>Microservices, CLI tools</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+          <div style="font-weight:700;font-size:12px;color:#1d4ed8;margin-bottom:4px;">C / C++</div>
+          <div style="font-size:11px;color:#57606a;line-height:1.7;">Embedded, OS-level<br>OpenSSL, native libs</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+          <div style="font-weight:700;font-size:12px;color:#1d4ed8;margin-bottom:4px;">Ruby / PHP</div>
+          <div style="font-size:11px;color:#57606a;line-height:1.7;">Rails, Sinatra<br>Laravel, Symfony</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+          <div style="font-weight:700;font-size:12px;color:#1d4ed8;margin-bottom:4px;">IaC / Containers</div>
+          <div style="font-size:11px;color:#57606a;line-height:1.7;">Kubernetes YAML, Terraform<br>Dockerfile, Helm, Ansible</div>
+        </div>
+      </div>
+
+      <!-- ── SUPPORTED TOOLS ── -->
+      <div style="font-size:13px;font-weight:700;color:#1c2b4a;border-left:3px solid #3b82d4;padding-left:10px;margin-bottom:14px;">
+        Supported Scanning Tools — Export &amp; Upload
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;">
+
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:10px;font-weight:700;background:#fdf4ff;color:#7c3aed;border:1px solid #d8b4fe;border-radius:3px;padding:1px 6px;display:inline-block;margin-bottom:6px;">SAST + SCA</div>
+          <div style="font-weight:700;font-size:12px;color:#1f2328;margin-bottom:3px;">Polaris (Black Duck)</div>
+          <div style="font-size:11px;color:#57606a;">Issues → Export → Excel / CSV</div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:10px;font-weight:700;background:#fdf4ff;color:#7c3aed;border:1px solid #d8b4fe;border-radius:3px;padding:1px 6px;display:inline-block;margin-bottom:6px;">SAST</div>
+          <div style="font-weight:700;font-size:12px;color:#1f2328;margin-bottom:3px;">SonarQube / SonarCloud</div>
+          <div style="font-size:11px;color:#57606a;">Issues → Export CSV</div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:10px;font-weight:700;background:#fdf4ff;color:#7c3aed;border:1px solid #d8b4fe;border-radius:3px;padding:1px 6px;display:inline-block;margin-bottom:6px;">SAST + SCA</div>
+          <div style="font-weight:700;font-size:12px;color:#1f2328;margin-bottom:3px;">Veracode</div>
+          <div style="font-size:11px;color:#57606a;">Results → Export Findings → Excel</div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:10px;font-weight:700;background:#fdf4ff;color:#7c3aed;border:1px solid #d8b4fe;border-radius:3px;padding:1px 6px;display:inline-block;margin-bottom:6px;">SAST</div>
+          <div style="font-weight:700;font-size:12px;color:#1f2328;margin-bottom:3px;">Checkmarx</div>
+          <div style="font-size:11px;color:#57606a;">Scan Results → Export → Excel</div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:10px;font-weight:700;background:#fff7ed;color:#c2410c;border:1px solid #fdba74;border-radius:3px;padding:1px 6px;display:inline-block;margin-bottom:6px;">SCA</div>
+          <div style="font-weight:700;font-size:12px;color:#1f2328;margin-bottom:3px;">Snyk</div>
+          <div style="font-size:11px;color:#57606a;">Reports → Export CSV</div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:10px;font-weight:700;background:#fdf4ff;color:#7c3aed;border:1px solid #d8b4fe;border-radius:3px;padding:1px 6px;display:inline-block;margin-bottom:6px;">SAST + SCA</div>
+          <div style="font-weight:700;font-size:12px;color:#1f2328;margin-bottom:3px;">GitHub Advanced Security</div>
+          <div style="font-size:11px;color:#57606a;">Security → Code scanning → Export CSV</div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:10px;font-weight:700;background:#fff7ed;color:#c2410c;border:1px solid #fdba74;border-radius:3px;padding:1px 6px;display:inline-block;margin-bottom:6px;">SCA</div>
+          <div style="font-weight:700;font-size:12px;color:#1f2328;margin-bottom:3px;">OWASP Dependency-Check</div>
+          <div style="font-size:11px;color:#57606a;"><code style="font-size:10px;">--format CSV</code> CLI flag</div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:10px;font-weight:700;background:#fff7ed;color:#c2410c;border:1px solid #fdba74;border-radius:3px;padding:1px 6px;display:inline-block;margin-bottom:6px;">SCA + IaC</div>
+          <div style="font-weight:700;font-size:12px;color:#1f2328;margin-bottom:3px;">Trivy / Grype</div>
+          <div style="font-size:11px;color:#57606a;"><code style="font-size:10px;">--output results.csv</code></div>
+        </div>
+
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:10px;font-weight:700;background:#fef9f9;color:#b91c1c;border:1px solid #fca5a5;border-radius:3px;padding:1px 6px;display:inline-block;margin-bottom:6px;">DAST</div>
+          <div style="font-weight:700;font-size:12px;color:#1f2328;margin-bottom:3px;">Invicti / Netsparker</div>
+          <div style="font-size:11px;color:#57606a;">Reports → Export CSV/Excel<br><span style="color:#92400e;">Rename: Affected URL → Location</span></div>
+        </div>
+
+        <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:10px;font-weight:700;background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:3px;padding:1px 6px;display:inline-block;margin-bottom:6px;">Container</div>
+          <div style="font-weight:700;font-size:12px;color:#1f2328;margin-bottom:3px;">Aqua Security</div>
+          <div style="font-size:11px;color:#57606a;">Vulnerabilities → Export CSV<br><span style="color:#166534;">Rename: Image Name → Project</span></div>
+        </div>
+
+      </div>
+      <p style="font-size:11px;color:#57606a;margin-top:10px;">
+        Any tool not listed above: export to CSV and rename columns to <code>Application, Project, Issue Type, Severity, CWE ID, Location</code>.
+      </p>
+    </div>
+
   </div>
 
   <!-- PROCESSING -->
