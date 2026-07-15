@@ -303,6 +303,7 @@
       <div class="tab" id="tab-btn-findings" onclick="switchTab('findings')">📋 Findings</div>
       <div class="tab active" id="tab-btn-remediation" onclick="switchTab('remediation')">🔧 Fix It — Remediation</div>
       <div class="tab" id="tab-btn-effort" onclick="switchTab('effort')">📅 Sprint Plan</div>
+      <div class="tab" id="tab-btn-languages" onclick="switchTab('languages')">🌐 Languages &amp; Tools</div>
       <div class="tab" id="tab-btn-automation" onclick="switchTab('automation')">🤖 IBM Bob + ICA</div>
     </div>
 
@@ -392,6 +393,123 @@
           <tbody id="actionBody"></tbody>
         </table>
       </div>
+    </div>
+
+    <!-- TAB: LANGUAGES & TOOLS -->
+    <div class="tab-pane" id="tab-languages">
+      <div class="section-hdr">Supported Languages — Automated Remediation Reports</div>
+      <p style="font-size:13px;color:#57606a;margin-bottom:16px;">
+        The dashboard generates code-level fix guidance for vulnerabilities in all languages below.
+        Export from any listed scanning tool and upload — the report renders instantly.
+      </p>
+
+      <!-- Language cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;">
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;">
+          <div style="font-weight:700;font-size:13px;color:#1d4ed8;margin-bottom:6px;">Java / Kotlin</div>
+          <div style="font-size:11px;color:#57606a;line-height:1.8;">Spring Boot, Maven, Gradle<br>Android, Quarkus, Micronaut</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;">
+          <div style="font-weight:700;font-size:13px;color:#1d4ed8;margin-bottom:6px;">C# / .NET</div>
+          <div style="font-size:11px;color:#57606a;line-height:1.8;">ASP.NET Core, WPF, WinForms<br>.NET 6/7/8, Blazor</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;">
+          <div style="font-weight:700;font-size:13px;color:#1d4ed8;margin-bottom:6px;">JavaScript / TypeScript</div>
+          <div style="font-size:11px;color:#57606a;line-height:1.8;">React, Angular, Vue, Node.js<br>Express, Next.js</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;">
+          <div style="font-weight:700;font-size:13px;color:#1d4ed8;margin-bottom:6px;">Python</div>
+          <div style="font-size:11px;color:#57606a;line-height:1.8;">Django, Flask, FastAPI<br>AWS Lambda, Pandas</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;">
+          <div style="font-weight:700;font-size:13px;color:#1d4ed8;margin-bottom:6px;">Go</div>
+          <div style="font-size:11px;color:#57606a;line-height:1.8;">Gin, Echo, gRPC<br>Microservices, CLI tools</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;">
+          <div style="font-weight:700;font-size:13px;color:#1d4ed8;margin-bottom:6px;">C / C++</div>
+          <div style="font-size:11px;color:#57606a;line-height:1.8;">Embedded, OS-level<br>OpenSSL, native libs</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;">
+          <div style="font-weight:700;font-size:13px;color:#1d4ed8;margin-bottom:6px;">Ruby / PHP</div>
+          <div style="font-size:11px;color:#57606a;line-height:1.8;">Rails, Sinatra<br>Laravel, Symfony</div>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;">
+          <div style="font-weight:700;font-size:13px;color:#1d4ed8;margin-bottom:6px;">IaC / Config</div>
+          <div style="font-size:11px;color:#57606a;line-height:1.8;">Kubernetes YAML, Terraform<br>Dockerfile, Helm, Ansible</div>
+        </div>
+      </div>
+
+      <!-- Scanning Tools table -->
+      <div class="section-hdr">Supported Scanning Tools — How to Get the Export</div>
+      <p style="font-size:13px;color:#57606a;margin-bottom:12px;">
+        Export from any of these tools as <code>.xlsx</code> or <code>.csv</code> and upload directly to this dashboard.
+      </p>
+      <div class="table-wrap" style="margin-bottom:6px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Tool</th>
+              <th>Type</th>
+              <th>How to Export</th>
+              <th>Languages</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-weight:700;color:#1d4ed8;">Polaris (Black Duck)</td>
+              <td><span class="badge badge-sast">SAST + SCA</span></td>
+              <td>Issues tab → Export → Excel / CSV</td>
+              <td>Java, C#, JS, Python, Go, C/C++, Ruby, PHP</td>
+            </tr>
+            <tr>
+              <td style="font-weight:700;color:#1d4ed8;">SonarQube / SonarCloud</td>
+              <td><span class="badge badge-sast">SAST</span></td>
+              <td>Issues → Export CSV → rename columns to match</td>
+              <td>30+ languages</td>
+            </tr>
+            <tr>
+              <td style="font-weight:700;color:#1d4ed8;">Veracode</td>
+              <td><span class="badge badge-sast">SAST + SCA</span></td>
+              <td>Results → Export Findings → Excel</td>
+              <td>Java, .NET, JS, Python, PHP, Go</td>
+            </tr>
+            <tr>
+              <td style="font-weight:700;color:#1d4ed8;">Checkmarx (CxSAST / One)</td>
+              <td><span class="badge badge-sast">SAST</span></td>
+              <td>Scan Results → Export → Excel</td>
+              <td>Java, C#, JS, Python, Go, C/C++</td>
+            </tr>
+            <tr>
+              <td style="font-weight:700;color:#1d4ed8;">Snyk</td>
+              <td><span class="badge badge-sca">SCA</span></td>
+              <td>Reports → Export CSV</td>
+              <td>All package managers (npm, Maven, pip, Go modules)</td>
+            </tr>
+            <tr>
+              <td style="font-weight:700;color:#1d4ed8;">GitHub Advanced Security</td>
+              <td><span class="badge badge-sast">SAST + SCA</span></td>
+              <td>Security tab → Code scanning alerts → Export CSV</td>
+              <td>JS, Python, Java, C#, Go, Ruby, C/C++</td>
+            </tr>
+            <tr>
+              <td style="font-weight:700;color:#1d4ed8;">OWASP Dependency-Check</td>
+              <td><span class="badge badge-sca">SCA</span></td>
+              <td><code>--format CSV</code> flag on CLI</td>
+              <td>Java, .NET, JS, Python, Ruby</td>
+            </tr>
+            <tr>
+              <td style="font-weight:700;color:#1d4ed8;">Trivy / Grype</td>
+              <td><span class="badge badge-sca">SCA + IaC</span></td>
+              <td><code>--format table --output results.csv</code></td>
+              <td>Containers, IaC, all package managers</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:11px;color:#57606a;margin-top:6px;margin-bottom:0;">
+        * Column names vary by tool. For tools not listed, export to CSV and rename columns to:
+        <code>Application, Project, Issue Type, Severity, CWE ID, Location</code>.
+      </p>
     </div>
 
     <!-- TAB: AUTOMATION -->
@@ -530,118 +648,6 @@
           <li><strong>Variable schema:</strong> The dashboard auto-detects column positions by name — column order does not matter</li>
           <li><strong>New CWEs:</strong> The remediation engine auto-generates guidance for any CWE not in its built-in library</li>
         </ul>
-
-        <!-- ── SUPPORTED LANGUAGES & TOOLS ─────────────────────────────── -->
-        <div class="section-hdr" style="margin-top:20px;">Supported Languages — Automated Remediation Reports</div>
-        <p style="font-size:13px;color:#374151;margin-bottom:12px;">
-          The dashboard generates code-level fix guidance for vulnerabilities in all of the languages below.
-          Polaris SAST/SCA scans these automatically — upload the export and the report is ready instantly.
-        </p>
-
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
-          <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
-            <div style="font-weight:700;font-size:13px;color:#1f2328;margin-bottom:6px;">Java / Kotlin</div>
-            <div style="font-size:11px;color:#57606a;line-height:1.7;">Spring Boot, Maven, Gradle<br>Android, Quarkus, Micronaut</div>
-          </div>
-          <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
-            <div style="font-weight:700;font-size:13px;color:#1f2328;margin-bottom:6px;">C# / .NET</div>
-            <div style="font-size:11px;color:#57606a;line-height:1.7;">ASP.NET Core, WPF, WinForms<br>.NET 6/7/8, Blazor</div>
-          </div>
-          <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
-            <div style="font-weight:700;font-size:13px;color:#1f2328;margin-bottom:6px;">JavaScript / TypeScript</div>
-            <div style="font-size:11px;color:#57606a;line-height:1.7;">React, Angular, Vue, Node.js<br>Express, Next.js</div>
-          </div>
-          <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
-            <div style="font-weight:700;font-size:13px;color:#1f2328;margin-bottom:6px;">Python</div>
-            <div style="font-size:11px;color:#57606a;line-height:1.7;">Django, Flask, FastAPI<br>AWS Lambda, Pandas</div>
-          </div>
-          <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
-            <div style="font-weight:700;font-size:13px;color:#1f2328;margin-bottom:6px;">Go</div>
-            <div style="font-size:11px;color:#57606a;line-height:1.7;">Gin, Echo, gRPC<br>Microservices, CLI tools</div>
-          </div>
-          <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
-            <div style="font-weight:700;font-size:13px;color:#1f2328;margin-bottom:6px;">C / C++</div>
-            <div style="font-size:11px;color:#57606a;line-height:1.7;">Embedded, OS-level<br>OpenSSL, native libs</div>
-          </div>
-          <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
-            <div style="font-weight:700;font-size:13px;color:#1f2328;margin-bottom:6px;">Ruby / PHP</div>
-            <div style="font-size:11px;color:#57606a;line-height:1.7;">Rails, Sinatra<br>Laravel, Symfony</div>
-          </div>
-          <div style="background:#f7f8fa;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
-            <div style="font-weight:700;font-size:13px;color:#1f2328;margin-bottom:6px;">IaC / Config</div>
-            <div style="font-size:11px;color:#57606a;line-height:1.7;">Kubernetes YAML, Terraform<br>Dockerfile, Helm, Ansible</div>
-          </div>
-        </div>
-
-        <div class="section-hdr" style="margin-top:20px;">Supported Scanning Tools — How to Get the Export</div>
-        <p style="font-size:13px;color:#374151;margin-bottom:12px;">
-          Any of these tools can generate the <code>.xlsx</code> or <code>.csv</code> export this dashboard reads.
-        </p>
-
-        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:4px;">
-          <thead>
-            <tr>
-              <th style="background:#f7f8fa;border:1px solid #e5e7eb;padding:8px 12px;text-align:left;font-weight:700;">Tool</th>
-              <th style="background:#f7f8fa;border:1px solid #e5e7eb;padding:8px 12px;text-align:left;font-weight:700;">Type</th>
-              <th style="background:#f7f8fa;border:1px solid #e5e7eb;padding:8px 12px;text-align:left;font-weight:700;">How to Export</th>
-              <th style="background:#f7f8fa;border:1px solid #e5e7eb;padding:8px 12px;text-align:left;font-weight:700;">Languages</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;font-weight:700;color:#1d4ed8;">Polaris (Black Duck)</td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><span class="badge badge-sast">SAST + SCA</span></td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Issues tab → Export → Excel / CSV</td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Java, C#, JS, Python, Go, C/C++, Ruby, PHP</td>
-            </tr>
-            <tr style="background:#fafafa;">
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;font-weight:700;color:#1d4ed8;">SonarQube / SonarCloud</td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><span class="badge badge-sast">SAST</span></td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Issues → Export CSV → rename columns to match</td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;">30+ languages</td>
-            </tr>
-            <tr>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;font-weight:700;color:#1d4ed8;">Veracode</td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><span class="badge badge-sast">SAST + SCA</span></td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Results → Export Findings → Excel</td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Java, .NET, JS, Python, PHP, Go</td>
-            </tr>
-            <tr style="background:#fafafa;">
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;font-weight:700;color:#1d4ed8;">Checkmarx (CxSAST / One)</td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><span class="badge badge-sast">SAST</span></td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Scan Results → Export → Excel</td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Java, C#, JS, Python, Go, C/C++</td>
-            </tr>
-            <tr>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;font-weight:700;color:#1d4ed8;">Snyk</td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><span class="badge badge-sca">SCA</span></td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Reports → Export CSV</td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;">All package managers (npm, Maven, pip, Go modules)</td>
-            </tr>
-            <tr style="background:#fafafa;">
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;font-weight:700;color:#1d4ed8;">GitHub Advanced Security</td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><span class="badge badge-sast">SAST + SCA</span></td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Security tab → Code scanning alerts → Export CSV</td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;">JS, Python, Java, C#, Go, Ruby, C/C++</td>
-            </tr>
-            <tr>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;font-weight:700;color:#1d4ed8;">OWASP Dependency-Check</td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><span class="badge badge-sca">SCA</span></td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><code>--format CSV</code> flag on CLI</td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Java, .NET, JS, Python, Ruby</td>
-            </tr>
-            <tr style="background:#fafafa;">
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;font-weight:700;color:#1d4ed8;">Trivy / Grype</td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><span class="badge badge-sca">SCA + IaC</span></td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;"><code>--format table --output results.csv</code></td>
-              <td style="border:1px solid #e5e7eb;padding:8px 12px;">Containers, IaC, all package managers</td>
-            </tr>
-          </tbody>
-        </table>
-        <p style="font-size:11px;color:#57606a;margin-top:6px;">
-          * Column names vary by tool. The dashboard auto-maps common variants. For tools not listed, export to CSV and rename columns to: <code>Application, Project, Issue Type, Severity, CWE ID, Location</code>.
-        </p>
-
       </div>
     </div>
 
