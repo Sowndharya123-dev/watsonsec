@@ -4,8 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Security Champion Dashboard — Vulnerability Remediation</title>
-<!-- SheetJS for in-browser Excel parsing — local copy so it works offline/publicly -->
-<script src="xlsx.full.min.js"></script>
+<!-- SheetJS for in-browser Excel parsing — CDN primary, local copy fallback -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script>
+  if (typeof XLSX === 'undefined') {
+    // Fallback to local copy (works when served from same directory)
+    var s = document.createElement('script');
+    s.src = 'xlsx.full.min.js';
+    document.head.appendChild(s);
+  }
+</script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
