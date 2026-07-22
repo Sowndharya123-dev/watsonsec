@@ -1,0 +1,16 @@
+Application,Project,Issue Type,Severity,Test Type,CWE ID,Location,Link
+MyApp,backend,SQL Injection,High,SAST,CWE-89,src/db/UserRepo.java:45,https://polaris.example.com/1
+MyApp,backend,Use of Hard-coded Credentials,Critical,SAST,CWE-798,src/config/AppConfig.java:12,https://polaris.example.com/2
+MyApp,frontend,Cross-site Scripting,High,SAST,CWE-79,src/views/ProfileView.js:87,https://polaris.example.com/3
+MyApp,infra,Path Traversal,High,SAST,CWE-22,src/api/FileController.java:33,https://polaris.example.com/4
+MyApp,backend,NULL Pointer Dereference,Medium,SAST,CWE-476,src/service/OrderService.java:61,https://polaris.example.com/5
+MyApp,backend,XXE Injection,High,SAST,CWE-611,src/parser/XmlParser.java:19,https://polaris.example.com/6
+MyApp,backend,Missing Authorization Check,High,SAST,CWE-862,src/api/AdminController.java:77,https://polaris.example.com/7
+MyApp,deps,Deserialization of Untrusted Data,Critical,SCA,CWE-502,pom.xml (commons-collections 3.1),https://polaris.example.com/8
+MyApp,backend,Use of Broken Cryptographic Algorithm,Medium,SAST,CWE-327,src/util/CryptoUtil.java:24,https://polaris.example.com/9
+MyApp,infra,Server-Side Request Forgery,Critical,SAST,CWE-918,src/api/HttpClient.java:55,https://polaris.example.com/10
+MyApp,backend,SQL Injection,High,SAST,CWE-89,src/db/ProductRepo.java:112,https://polaris.example.com/11
+MyApp,frontend,Cross-site Scripting,Medium,SAST,CWE-79,src/components/SearchBar.js:34,https://polaris.example.com/12
+MyApp,backend,Improper Resource Shutdown,Medium,SAST,CWE-404,src/db/ConnectionPool.java:88,https://polaris.example.com/13
+MyApp,backend,Integer Overflow,High,SAST,CWE-190,src/util/MathHelper.java:17,https://polaris.example.com/14
+MyApp,backend,Exposure of Sensitive Information,Medium,SAST,CWE-200,src/api/ErrorHandler.java:55,https://polaris.example.com/15

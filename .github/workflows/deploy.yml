@@ -1,0 +1,144 @@
+name: Deploy — Security Champion Dashboard to IBM Cloud
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:   # allow manual trigger from GitHub UI
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 1: Smoke Test (runs on every push and PR)
+  # ────────────────────────────────────────────────────────────────────────────
+  test:
+    name: Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Verify server starts and health endpoint responds
+        run: |
+          node server/app.js &
+          SERVER_PID=$!
+          sleep 3
+          curl -sf http://localhost:3000/health | grep '"status":"ok"'
+          kill $SERVER_PID
+        timeout-minutes: 1
+
+      - name: Verify dashboard HTML exists and is non-empty
+        run: |
+          test -f public/index.html
+          wc -c public/index.html
+          echo "✅ Dashboard HTML present"
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 2: Deploy to IBM Cloud Foundry (runs only on push to main)
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy-cloud-foundry:
+    name: Deploy to IBM Cloud Foundry
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install IBM Cloud CLI
+        run: |
+          curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
+          ibmcloud --version
+
+      - name: Install CF plugin
+        run: ibmcloud cf install --force
+
+      - name: Login to IBM Cloud
+        run: |
+          ibmcloud login \
+            --apikey "${{ secrets.IBM_CLOUD_API_KEY }}" \
+            -r "${{ secrets.IBM_CLOUD_REGION }}" \
+            -g "${{ secrets.IBM_CLOUD_RESOURCE_GROUP }}"
+
+      - name: Target CF org & space
+        run: |
+          ibmcloud target \
+            -o "${{ secrets.IBM_CF_ORG }}" \
+            -s "${{ secrets.IBM_CF_SPACE }}"
+
+      - name: Deploy to Cloud Foundry
+        run: |
+          ibmcloud cf push security-champion-dashboard \
+            -f manifest.yml
+
+      - name: Verify live health check
+        run: |
+          sleep 10
+          APP_URL=$(ibmcloud cf app security-champion-dashboard | grep "routes:" | awk '{print $2}')
+          echo "App URL: https://${APP_URL}"
+          curl -sf "https://${APP_URL}/health" | grep '"status":"ok"'
+          echo "✅ Live at https://${APP_URL}"
+
+      - name: Print public URL
+        run: |
+          ibmcloud cf app security-champion-dashboard | grep "routes:"
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # JOB 3 (Optional): IBM Code Engine — Docker-based deployment
+  # Uncomment all lines below + add IBM_CR_NAMESPACE to GitHub Secrets to enable
+  # ────────────────────────────────────────────────────────────────────────────
+  # deploy-code-engine:
+  #   name: Deploy to IBM Code Engine (Docker)
+  #   runs-on: ubuntu-latest
+  #   needs: test
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - name: Login to IBM Cloud & Container Registry
+  #       run: |
+  #         curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
+  #         ibmcloud login --apikey "${{ secrets.IBM_CLOUD_API_KEY }}" \
+  #           -r "${{ secrets.IBM_CLOUD_REGION }}" \
+  #           -g "${{ secrets.IBM_CLOUD_RESOURCE_GROUP }}"
+  #         ibmcloud cr login
+  #         ibmcloud cr namespace-add ${{ secrets.IBM_CR_NAMESPACE }} || true
+  #
+  #     - name: Build and push Docker image
+  #       run: |
+  #         IMG="us.icr.io/${{ secrets.IBM_CR_NAMESPACE }}/security-champion-dashboard"
+  #         docker build -t "${IMG}:${{ github.sha }}" .
+  #         docker push "${IMG}:${{ github.sha }}"
+  #         docker tag "${IMG}:${{ github.sha }}" "${IMG}:latest"
+  #         docker push "${IMG}:latest"
+  #
+  #     - name: Deploy / update Code Engine application
+  #       run: |
+  #         IMG="us.icr.io/${{ secrets.IBM_CR_NAMESPACE }}/security-champion-dashboard:${{ github.sha }}"
+  #         ibmcloud ce project select --name security-champion || \
+  #           ibmcloud ce project create --name security-champion
+  #         ibmcloud ce application update \
+  #           --name security-champion-dashboard \
+  #           --image "${IMG}" \
+  #           --port 3000 \
+  #           --min-scale 1 \
+  #           --max-scale 3 2>/dev/null || \
+  #         ibmcloud ce application create \
+  #           --name security-champion-dashboard \
+  #           --image "${IMG}" \
+  #           --registry-secret "${{ secrets.IBM_CR_NAMESPACE }}-secret" \
+  #           --port 3000 \
+  #           --min-scale 1 \
+  #           --max-scale 3
+  #
+  #     - name: Print Code Engine URL
+  #       run: ibmcloud ce application get --name security-champion-dashboard --output url

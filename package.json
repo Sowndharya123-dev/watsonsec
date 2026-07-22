@@ -1,0 +1,30 @@
+{
+  "name": "security-champion-dashboard",
+  "version": "1.0.0",
+  "description": "Security Champion Vulnerability Remediation Dashboard — powered by IBM Bob & Watsonx AI",
+  "main": "server/app.js",
+  "scripts": {
+    "start": "node server/app.js",
+    "dev": "nodemon server/app.js"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": [
+    "security",
+    "vulnerability",
+    "remediation",
+    "sast",
+    "ibm-cloud",
+    "watsonx"
+  ],
+  "author": "Security Champion Team",
+  "license": "MIT"
+}

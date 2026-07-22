@@ -1,0 +1,15 @@
+---
+# IBM Cloud Foundry Deployment Manifest
+# Deploy with: ibmcloud cf push
+applications:
+  - name: security-champion-dashboard
+    memory: 128M
+    disk_quota: 256M
+    instances: 1
+    buildpacks:
+      - nodejs_buildpack
+    command: node server/app.js
+    health-check-type: http
+    health-check-http-endpoint: /health
+    env:
+      NODE_ENV: production
